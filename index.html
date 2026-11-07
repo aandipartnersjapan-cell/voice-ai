@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ボイスAI</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --text:#f1f5f9; --sub:#94a3b8; --accent:#38bdf8; --rec:#f43f5e; --talk:#22c55e; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
+         display:flex; flex-direction:column; max-width:640px; margin:0 auto; }
+  header { padding:12px 16px 4px; display:flex; align-items:center; gap:12px; }
+  #cname { font-weight:700; }
+  #crole { color:var(--sub); font-size:.8rem; }
+  #who { margin-left:auto; background:var(--card); color:var(--text); border:0; border-radius:8px; padding:6px 8px; font-size:.85rem; }
+  #stage { display:flex; justify-content:center; padding:6px 0 2px; }
+  #avatar { width:136px; height:136px; border-radius:50%; overflow:hidden; background:var(--card); box-shadow:0 0 0 4px transparent; transition:box-shadow .25s; }
+  #avatar { position:relative; }
+  #avatar::after { content:''; position:absolute; inset:0; pointer-events:none; border-radius:50%;
+    background:radial-gradient(circle at 30% 22%, rgba(255,255,255,.30), rgba(255,255,255,0) 55%), radial-gradient(circle at 70% 95%, rgba(0,0,0,.14), rgba(0,0,0,0) 60%); }
+  #avatar svg { width:100%; height:100%; display:block; transform-origin:50% 100%; animation:breathe 4s ease-in-out infinite; }
+  #avatar[data-s="listening"] svg { animation:tilt 2.6s ease-in-out infinite; }
+  #avatar.talk svg { animation:bob .5s ease-in-out infinite alternate; }
+  @keyframes breathe { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-1.5px) scale(1.025)} }
+  @keyframes tilt { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2deg)} }
+  @keyframes bob { from{transform:translateY(0) rotate(-.8deg)} to{transform:translateY(-2px) rotate(.8deg)} }
+  .layers { position:relative; width:100%; height:100%; }
+  .layers img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:top; }
+  .layers .ly { opacity:0; }
+  .layers .ly.on { opacity:1; }
+  #avatar[data-s="listening"] { box-shadow:0 0 0 4px var(--rec); }
+  #avatar[data-s="thinking"]  { box-shadow:0 0 0 4px var(--sub); }
+  #avatar.talk { box-shadow:0 0 0 4px var(--talk); }
+  #avatar .eyes, #avatar .mouth { transform-box:fill-box; transform-origin:center; }
+  #avatar .eyes { animation:blink 4.5s infinite; }
+  #avatar.talk .mouth { animation:mouth .22s infinite alternate; }
+  @keyframes blink { 0%,95%,100%{transform:scaleY(1)} 97.5%{transform:scaleY(.1)} }
+  @keyframes mouth { from{transform:scaleY(.4)} to{transform:scaleY(1.9)} }
+  #log { flex:1; overflow-y:auto; padding:8px 16px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:85%; padding:10px 14px; border-radius:16px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+  .user { align-self:flex-end; background:var(--accent); color:#0f172a; }
+  .bot { align-self:flex-start; background:var(--card); }
+  .hint { color:var(--sub); text-align:center; font-size:.9rem; margin:auto; }
+  footer { padding:12px 16px calc(16px + env(safe-area-inset-bottom)); text-align:center; }
+  #status { min-height:1.6em; color:var(--sub); margin-bottom:10px; }
+  #mic { width:96px; height:96px; border-radius:50%; border:0; font-size:40px; background:var(--accent); cursor:pointer; }
+  #mic.listening { background:var(--rec); animation:pulse 1.2s infinite; }
+  #mic.thinking  { background:var(--sub); }
+  #mic.speaking  { background:var(--talk); }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(244,63,94,.5)} 50%{box-shadow:0 0 0 18px rgba(244,63,94,0)} }
+  .row { margin-top:12px; display:flex; gap:8px; justify-content:center; }
+  .row button, #send { background:var(--card); color:var(--text); border:0; border-radius:10px; padding:8px 14px; cursor:pointer; }
+  .textrow { display:flex; gap:8px; margin-top:12px; }
+  #text { flex:1; background:var(--card); color:var(--text); border:0; border-radius:10px; padding:10px 12px; font-size:16px; }
+</style>
+</head>
+<body>
+<header><div><div id="cname"></div><div id="crole"></div></div><select id="who" aria-label="キャラクター"></select></header>
+<div id="stage"><div id="avatar"></div></div>
+<div id="log"></div>
+<footer>
+  <div id="status"></div>
+  <button id="mic" aria-label="話しかける">🎤</button>
+  <div class="row">
+    <button id="muteBtn">🔊 声で答える：ON</button>
+    <button id="clearBtn">🗑️ 消す</button>
+  </div>
+  <div class="textrow">
+    <input id="text" type="text" placeholder="声が使えないときは文字でも質問できます">
+    <button id="send">送信</button>
+  </div>
+</footer>
+
+<script>
+  // キーは Cloudflare Worker の中にだけあります
+  const WORKER_URL = 'https://chatbot-api.aandipartners-japan.workers.dev';
+
+  const $ = id => document.getElementById(id);
+  const log = $('log'), mic = $('mic'), statusEl = $('status');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+
+  // ===== キャラクターのイラスト（SVG・ほのぼのマンガ調） =====
+  const ART = [
+    // 桜井ことは
+    `<svg viewBox="0 0 120 120"><rect width="120" height="120" fill="#fff3c4"/>
+      <g stroke="#3a2a22" stroke-width="1.8" stroke-linejoin="round">
+      <path d="M30 52 Q10 60 14 92 Q22 98 28 86 Q30 70 36 60Z" fill="#7a4a2a"/><path d="M90 52 Q110 60 106 92 Q98 98 92 86 Q90 70 84 60Z" fill="#7a4a2a"/>
+      <path d="M26 124 Q28 98 60 96 Q92 98 94 124Z" fill="#7ed6b5"/>
+      <rect x="54" y="86" width="12" height="13" fill="#ffe6cc"/>
+      <circle cx="60" cy="58" r="32" fill="#ffe6cc"/>
+      <path d="M28 56 Q26 24 60 24 Q94 24 92 56 Q82 40 66 40 Q48 36 40 46 Q34 48 28 56Z" fill="#7a4a2a"/>
+      <path d="M30 52 L21 46 L21 59Z M30 52 L39 46 L39 59Z" fill="#ffd23f"/><path d="M90 52 L81 46 L81 59Z M90 52 L99 46 L99 59Z" fill="#ffd23f"/>
+      </g>
+      <ellipse cx="40" cy="72" rx="5" ry="3.2" fill="#ff9d8a" opacity=".7"/><ellipse cx="80" cy="72" rx="5" ry="3.2" fill="#ff9d8a" opacity=".7"/>
+      <path d="M37 69 l2 4 M41 69 l2 4 M77 69 l2 4 M81 69 l2 4" stroke="#e0705f" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M41 50 Q48 46 55 50M65 50 Q72 46 79 50" stroke="#3a2a22" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <g class="eyes"><ellipse cx="48" cy="60" rx="2.8" ry="4" fill="#2b1d17"/><ellipse cx="72" cy="60" rx="2.8" ry="4" fill="#2b1d17"/><circle cx="47" cy="58.5" r="1.1" fill="#fff"/><circle cx="71" cy="58.5" r="1.1" fill="#fff"/></g>
+      <g class="mouth"><ellipse cx="60" cy="76" rx="5" ry="3" fill="#b5413d" stroke="#3a2a22" stroke-width="1.2"/></g></svg>`,
+    // 神谷剛
+    `<svg viewBox="0 0 120 120"><rect width="120" height="120" fill="#f2e4cf"/>
+      <g stroke="#3a2a22" stroke-width="1.8" stroke-linejoin="round">
+      <path d="M24 124 Q26 98 60 96 Q94 98 96 124Z" fill="#b5835a"/><path d="M46 98 L74 98 L72 124 L48 124Z" fill="#fffaf0"/>
+      <rect x="54" y="86" width="12" height="13" fill="#f6d5b5"/>
+      <circle cx="60" cy="58" r="32" fill="#f6d5b5"/>
+      <path d="M30 50 Q22 52 24 66 Q30 62 32 56Z" fill="#cfcfd6"/><path d="M90 50 Q98 52 96 66 Q90 62 88 56Z" fill="#cfcfd6"/>
+      <path d="M34 36 Q60 22 86 36 Q60 30 34 36Z" fill="#cfcfd6"/>
+      <circle cx="60" cy="68" r="2.6" fill="#eab08e"/>
+      <path d="M44 74 Q52 68 60 72 Q68 68 76 74 Q68 80 60 77 Q52 80 44 74Z" fill="#cfcfd6"/>
+      </g>
+      <ellipse cx="38" cy="70" rx="4.5" ry="3" fill="#f2a58d" opacity=".6"/><ellipse cx="82" cy="70" rx="4.5" ry="3" fill="#f2a58d" opacity=".6"/>
+      <path d="M40 46 Q48 42 56 46M64 46 Q72 42 80 46" stroke="#9a9aa6" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <g class="eyes"><ellipse cx="48" cy="58" rx="2.2" ry="3" fill="#2b1d17"/><ellipse cx="72" cy="58" rx="2.2" ry="3" fill="#2b1d17"/></g>
+      <g fill="rgba(255,255,255,.35)" stroke="#3a2a22" stroke-width="1.8"><circle cx="48" cy="58" r="9"/><circle cx="72" cy="58" r="9"/><path d="M57 58 H63"/></g>
+      <g class="mouth"><ellipse cx="60" cy="84" rx="4.5" ry="2.6" fill="#b5413d" stroke="#3a2a22" stroke-width="1.2"/></g></svg>`,
+    // ロボ太
+    `<svg viewBox="0 0 120 120"><rect width="120" height="120" fill="#d6eef7"/>
+      <g stroke="#3a2a22" stroke-width="1.8" stroke-linejoin="round">
+      <rect x="32" y="96" width="56" height="34" rx="8" fill="#9db4c4"/><circle cx="60" cy="110" r="5" fill="#ffd23f"/>
+      <rect x="54" y="86" width="12" height="12" fill="#7f95a8"/>
+      <line x1="60" y1="26" x2="60" y2="12" stroke-linecap="round"/><circle cx="60" cy="10" r="5" fill="#ff7a7a"/>
+      <rect x="26" y="26" width="68" height="62" rx="14" fill="#c9d9e4"/>
+      <circle cx="24" cy="58" r="4" fill="#9db4c4"/><circle cx="96" cy="58" r="4" fill="#9db4c4"/>
+      </g>
+      <circle cx="36" cy="70" r="4.5" fill="#ff9d8a" opacity=".7"/><circle cx="84" cy="70" r="4.5" fill="#ff9d8a" opacity=".7"/>
+      <g class="eyes"><g stroke="#3a2a22" stroke-width="1.8"><circle cx="46" cy="54" r="9" fill="#fff"/><circle cx="74" cy="54" r="9" fill="#fff"/></g><circle cx="46" cy="55" r="4" fill="#2b1d17"/><circle cx="74" cy="55" r="4" fill="#2b1d17"/><circle cx="44.5" cy="53.5" r="1.3" fill="#fff"/><circle cx="72.5" cy="53.5" r="1.3" fill="#fff"/></g>
+      <g class="mouth"><rect x="50" y="72" width="20" height="7" rx="3" fill="#b5413d" stroke="#3a2a22" stroke-width="1.5"/></g></svg>`
+  ];
+
+  // ===== 架空のキャラクター（ここを書き換えると自分のキャラを作れます） =====
+  const CHARACTERS = [
+    { name:'桜井 ことは', role:'25歳・明るい案内役', avatar:'👩',
+      // 画像を使うときは、次の行の「//」を消します：
+      // img:{ base:'img/kotoha.png', mouth:'img/kotoha_mouth.png', blink:'img/kotoha_blink.png' }, pitch:1.35, rate:1.05,
+      greeting:'こんにちは！桜井ことはです。今日は何でも聞いてくださいね。',
+      prompt:'あなたは「桜井ことは」という25歳の架空の女性です。明るく元気で、親しみやすく、少しおっちょこちょいな性格です。友だちに話すような、やわらかい話し言葉で話します。' },
+    { name:'神谷 剛', role:'52歳・喫茶店のマスター', avatar:'👨‍🦳', pitch:0.75, rate:0.92,
+      greeting:'いらっしゃい。神谷です。コーヒーでも飲みながら、ゆっくり話しましょうか。',
+      prompt:'あなたは「神谷剛」という52歳の架空の男性で、小さな町の喫茶店のマスターです。落ち着いていて穏やか、聞き上手で、ときどき人生経験にもとづく一言を添えます。丁寧だけど堅すぎない話し方をします。' },
+    { name:'ロボ太', role:'陽気なおしゃべりロボット', avatar:'🤖', pitch:1.1, rate:1.1,
+      greeting:'ピピッ！ロボ太だよ。なんでも聞いてほしいロ！',
+      prompt:'あなたは「ロボ太」という陽気で好奇心旺盛な架空のロボットです。文の終わりに、ときどき「ロ」をつけて話します。ちょっと自慢げですが、憎めない性格です。' }
+  ];
+  let cur = CHARACTERS[0];
+  const hintHTML = () => '<div class="hint" id="hint">マイクをタップすると、' + cur.name + 'さんが話しかけてくれます。</div>';
+  // 画像モード用：キャラクターに img を設定すると、イラスト画像で口パク・まばたきをします
+  function buildAvatar(i) {
+    const av = $('avatar'), c = CHARACTERS[i];
+    if (!c.img) { av.innerHTML = ART[i]; return; }
+    av.innerHTML = '<div class="layers"><img class="base" alt="' + c.name + '" src="' + c.img.base + '">' +
+      '<img class="ly mouthL" alt="" src="' + c.img.mouth + '"><img class="ly blinkL" alt="" src="' + c.img.blink + '"></div>';
+    av.querySelector('.base').onerror = () => { av.innerHTML = ART[i]; };   // 画像が無ければ今のイラストに戻す
+  }
+  setInterval(() => {   // 話している間、口の画像を点滅させる
+    const av = $('avatar'), m = av.querySelector('.mouthL');
+    if (m) m.classList.toggle('on', av.classList.contains('talk') && !m.classList.contains('on'));
+  }, 140);
+  setInterval(() => {   // まばたき
+    const b = $('avatar').querySelector('.blinkL');
+    if (b) { b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 130); }
+  }, 4000);
+
+  function applyChar(i) {
+    cur = CHARACTERS[i];
+    buildAvatar(i);
+    $('cname').textContent = cur.name;
+    $('crole').textContent = cur.role;
+    log.innerHTML = hintHTML();
+  }
+  CHARACTERS.forEach((c, i) => { const o = document.createElement('option'); o.value = i; o.textContent = c.name; $('who').appendChild(o); });
+
+  let active = false;      // 会話モード中か
+  let muted = false;       // 声で答えるか
+  let busy = false;        // AIが考え中か
+  let recog = null;
+  let history = [];        // {role:'user'|'model', text}
+
+  function setState(cls, msg) { mic.className = cls || ''; statusEl.textContent = msg || ''; $('avatar').dataset.s = cls || ''; }
+
+  function addMsg(who, text) {
+    const h = $('hint'); if (h) h.remove();
+    const d = document.createElement('div');
+    d.className = 'msg ' + who;
+    d.textContent = text;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ---- AIに質問 ----
+  async function ask(userText) {
+    const instruction =
+      cur.prompt + '\n' +
+      '声で会話しているので、日本語の話し言葉で、2〜3文以内で簡潔に答えてください。記号・箇条書き・URL・絵文字は使わないでください。' +
+      '相手に本当にAIかどうか聞かれたときだけは、AIが演じているキャラクターだと正直に答えてください。';
+    const contents = history.slice(-6).map(h => ({ role: h.role, parts: [{ text: h.text }] }));
+    contents.push({ role: 'user', parts: [{ text: instruction + '\n\n【質問】\n' + userText }] });
+
+    let timer;
+    const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('時間切れ')), 15000); });
+    try {
+      const res = await Promise.race([
+        fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents }) }),
+        timeout
+      ]);
+      const data = await res.json();
+      const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+      if (parts) {
+        const ans = parts.filter(p => !p.thought && p.text).map(p => p.text).join('').trim();
+        if (ans) return ans;
+      }
+      if (data && data.error && data.error.code === 429) return '今日の無料の回数を使い切りました。また明日お試しください。';
+      return 'うまく答えを作れませんでした。もう一度お願いします。';
+    } catch (e) {
+      return '通信に失敗しました。（' + e.message + '）';
+    } finally { clearTimeout(timer); }
+  }
+
+  // ---- 声で読み上げ ----
+  function speak(text) {
+    return new Promise(resolve => {
+      if (muted || !('speechSynthesis' in window)) return resolve();
+      const clean = text.replace(/https?:\/\/\S+/g, '').replace(/[*#`>_~\-]{1,}/g, ' ');
+      const u = new SpeechSynthesisUtterance(clean);
+      u.lang = 'ja-JP';
+      u.pitch = cur.pitch; u.rate = cur.rate;
+      const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ja'));
+      if (v) u.voice = v;
+      u.onstart = () => $('avatar').classList.add('talk');
+      u.onend = u.onerror = () => { $('avatar').classList.remove('talk'); resolve(); };
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    });
+  }
+
+  // ---- 1回のやりとり ----
+  async function handle(userText) {
+    if (!userText) return;
+    busy = true;
+    addMsg('user', userText);
+    setState('thinking', '考え中…');
+    const ans = await ask(userText);
+    history.push({ role: 'user', text: userText }, { role: 'model', text: ans });
+    addMsg('bot', ans);
+    setState('speaking', muted ? '' : '話しています…');
+    await speak(ans);
+    busy = false;
+    if (active) listen(); else setState('', '');
+  }
+
+  // ---- 聞き取り ----
+  function listen() {
+    if (!SR) { setState('', 'このブラウザは音声入力に対応していません。文字で入力してください。'); active = false; return; }
+    if (!active || busy) return;
+    recog = new SR();
+    recog.lang = 'ja-JP';
+    recog.interimResults = true;
+    recog.continuous = false;
+    let finalText = '';
+    recog.onstart = () => setState('listening', '聞いています…（話してください）');
+    recog.onresult = e => {
+      let t = '';
+      for (const r of e.results) t += r[0].transcript;
+      finalText = t;
+      statusEl.textContent = t;
+    };
+    recog.onerror = e => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        active = false; setState('', 'マイクの使用が許可されていません。ブラウザの設定で許可してください。');
+      }
+    };
+    recog.onend = () => {
+      if (!active) return;
+      if (finalText.trim()) handle(finalText.trim());
+      else setTimeout(listen, 300);   // 無音なら聞き直し
+    };
+    try { recog.start(); } catch (e) {}
+  }
+
+  function stopAll() {
+    active = false;
+    try { recog && recog.abort(); } catch (e) {}
+    speechSynthesis.cancel();
+    busy = false;
+    setState('', '停止しました。マイクをタップすると再開します。');
+  }
+
+  // ---- ボタン ----
+  mic.addEventListener('click', () => {
+    if (active) return stopAll();
+    active = true;
+    // iPhone対策：タップ直後に無音の読み上げを1回して、声を使えるようにする
+    try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
+    if (history.length === 0 && $('hint')) {
+      // 最初のあいさつ
+      busy = true;
+      addMsg('bot', cur.greeting);
+      setState('speaking', muted ? '' : '話しています…');
+      speak(cur.greeting).then(() => { busy = false; listen(); });
+    } else listen();
+  });
+
+  $('who').addEventListener('change', e => { stopAll(); history = []; applyChar(+e.target.value); setState('', ''); });
+
+  $('muteBtn').addEventListener('click', e => {
+    muted = !muted;
+    e.target.textContent = muted ? '🔇 声で答える：OFF' : '🔊 声で答える：ON';
+    if (muted) speechSynthesis.cancel();
+  });
+
+  $('clearBtn').addEventListener('click', () => {
+    if (!confirm('会話を消しますか？')) return;
+    stopAll(); history = []; log.innerHTML = hintHTML(); setState('', '');
+  });
+
+  function sendText() {
+    const t = $('text').value.trim();
+    if (!t || busy) return;
+    $('text').value = '';
+    handle(t);
+  }
+  $('send').addEventListener('click', sendText);
+  $('text').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
+
+  applyChar(0);
+  if ('speechSynthesis' in window) speechSynthesis.getVoices();
+  if (!SR) statusEl.textContent = 'このブラウザは音声入力に対応していません（文字入力は使えます）。';
+</script>
+</body>
+</html>
