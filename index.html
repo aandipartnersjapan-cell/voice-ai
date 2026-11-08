@@ -169,16 +169,12 @@
       <g class="mouth"><rect x="50" y="72" width="20" height="7" rx="3" fill="#b5413d" stroke="#3a2a22" stroke-width="1.5"/></g></svg>`
   ];
 
-  ART.unshift(ART[0], ART[0]);   // 写真キャラ3人分の代わりの絵をそろえる
-
   // ===== 架空のキャラクター（ここを書き換えると自分のキャラを作れます） =====
   const ME_BG = 'linear-gradient(#dde5ee, #f6f8fb)';   // 背景なし（無地）
   const ME_GREET = 'こんにちは、はるです。来てくれてありがとう。何でも話しかけてね。';
   const ME_PROMPT = 'あなたは「はる」という名前で、画面に写っている写真の本人になりきって話す役です。性格はとても優しく、相手の話をうれしそうに聞きます。口ぐせは「たしかに！」で、相づちとしてときどき（毎回ではなく）使います。好きなことは、旅行、映画、ごはんです。仕事は金融事務です。自然な話し言葉で話します。ここに書いていない個人的な事実（年齢・住所・家族・予定・連絡先など）は知らないので、聞かれても作り話はせず、「それは内緒」「ちょっと分からないな」のように答えてください。金融の仕事の話は一般的な雑談にとどめ、投資の売買など具体的なお金の助言はしないでください。';
   const CHARACTERS = [
-    { name:'はる（川辺）', role:'写真の本人になりきるAI', photo:'img/me2.webp', pos:'34% 30%', bg:ME_BG, mouth:{ x:0.3422, y:0.4015, w:0.0987 }, pitch:1.1, rate:1.0, greeting:ME_GREET, prompt:ME_PROMPT },
-    { name:'はる（傘の道）', role:'写真の本人になりきるAI', photo:'img/me3.webp', pos:'59% 10%', bg:ME_BG, mouth:{ x:0.5857, y:0.1489, w:0.0921 }, pitch:1.1, rate:1.0, greeting:ME_GREET, prompt:ME_PROMPT },
-    { name:'はる（赤い橋）', role:'写真の本人になりきるAI', photo:'img/me.webp', pos:'43% 22%', bg:ME_BG, mouth:{ x:0.4278, y:0.2846, w:0.0942 }, pitch:1.1, rate:1.0, greeting:ME_GREET, prompt:ME_PROMPT },
+    { name:'はる', role:'写真の本人になりきるAI', photo:'img/haru.webp', pos:'46% 30%', bg:ME_BG, mouth:{ x:0.4833, y:0.4142, w:0.0963 }, pitch:1.1, rate:1.0, greeting:ME_GREET, prompt:ME_PROMPT },
     { name:'桜井 ことは', role:'25歳・明るい案内役', avatar:'👩',
       // 画像を使うときは、次の行の「//」を消します：
       // img:{ base:'img/kotoha.png', mouth:'img/kotoha_mouth.png', blink:'img/kotoha_blink.png' }, pitch:1.35, rate:1.05,
@@ -504,4 +500,3 @@
 </script>
 </body>
 </html>
-v
