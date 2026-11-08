@@ -1,508 +1,652 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ボイスAI通話</title>
-<style>
-  :root { --bg:#1a1a1a; --bar:#232323; --text:#f4f4f5; --sub:#a1a1aa; --blue:#0b5cff; --red:#e0243c; --green:#22c55e; --card:#2d2d2f; }
-  * { box-sizing:border-box; }
-  html,body { height:100%; margin:0; }
-  body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif; }
-  #app { height:100vh; height:100dvh; max-width:980px; margin:0 auto; display:flex; flex-direction:column; position:relative; overflow:hidden; }
-  #top { display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:.85rem; color:var(--sub); }
-  #top .dot { width:8px; height:8px; border-radius:50%; background:var(--green); }
-  #top b { color:var(--text); font-weight:600; }
-  #timer { margin-left:auto; font-variant-numeric:tabular-nums; }
-  #stage { flex:1; min-height:0; position:relative; padding:0 10px; }
-  #tile { position:relative; width:100%; height:100%; border-radius:12px; overflow:hidden; background:#000; box-shadow:0 0 0 3px transparent; transition:box-shadow .2s; }
-  #tile:has(#avatar.talk) { box-shadow:0 0 0 3px var(--green); }
-  #avatar { position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#222; overflow:hidden; }
-  #avatar::after { content:''; position:absolute; inset:0; pointer-events:none;
-    background:radial-gradient(circle at 30% 22%, rgba(255,255,255,.22), rgba(255,255,255,0) 55%), radial-gradient(circle at 70% 100%, rgba(0,0,0,.18), rgba(0,0,0,0) 60%); }
-  #avatar svg { width:100%; height:100%; display:block; transform-origin:50% 100%; }
-  #avatar[data-s="listening"] svg { animation:tilt 2.6s ease-in-out infinite; }
-  #avatar.talk svg { animation:bob .5s ease-in-out infinite alternate; }
-  #avatar .eyes, #avatar .mouth { transform-box:fill-box; transform-origin:center; }
-  #avatar .eyes { animation:blink 4.5s infinite; }
-  #avatar.talk .mouth { animation:mouth .22s infinite alternate; }
-  @keyframes blink { 0%,95%,100%{transform:scaleY(1)} 97.5%{transform:scaleY(.1)} }
-  @keyframes mouth { from{transform:scaleY(.4)} to{transform:scaleY(1.9)} }
-  @keyframes breathe { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-1.5px) scale(1.025)} }
-  @keyframes tilt { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2deg)} }
-  @keyframes bob { from{transform:translateY(0) rotate(-.8deg)} to{transform:translateY(-2px) rotate(.8deg)} }
-  #avatar .photo { width:100%; height:100%; object-fit:cover; object-position:50% 30%; display:block; }
-  #avatar:has(.photo)::after { display:none; }
-  .layers { position:relative; width:100%; height:100%; }
-  .layers img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
-  .layers .ly { opacity:0; }
-  .layers .ly.on { opacity:1; }
-  #nameTag { position:absolute; left:10px; bottom:10px; background:rgba(0,0,0,.55); padding:4px 10px; border-radius:6px; font-size:.85rem; z-index:2; }
-  #caption { position:absolute; left:12px; right:12px; bottom:48px; max-height:38%; overflow:auto; text-align:center; background:rgba(0,0,0,.72); border-radius:8px; padding:8px 12px; line-height:1.55; z-index:2; }
-  #caption:empty { display:none; }
-  #status { position:absolute; top:10px; left:50%; transform:translateX(-50%); max-width:90%; background:rgba(0,0,0,.65); padding:5px 12px; border-radius:999px; font-size:.85rem; z-index:3; text-align:center; }
-  #status:empty { display:none; }
-  #self { position:absolute; right:20px; top:12px; width:26%; max-width:132px; min-width:84px; aspect-ratio:3/4; border-radius:10px; overflow:hidden; background:#3a3a3d; border:2px solid #111; display:flex; align-items:center; justify-content:center; z-index:3; }
-  #self.hear { border-color:var(--blue); }
-  #selfInit { width:44px; height:44px; border-radius:50%; background:var(--blue); display:flex; align-items:center; justify-content:center; font-weight:700; }
-  #selfVideo { display:none; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
-  #selfLabel { position:absolute; left:6px; bottom:5px; font-size:.7rem; background:rgba(0,0,0,.55); padding:1px 6px; border-radius:4px; }
-  #bar { display:flex; justify-content:center; gap:4px; padding:8px 6px calc(10px + env(safe-area-inset-bottom)); background:var(--bar); }
-  .cb { background:none; border:0; color:var(--text); display:flex; flex-direction:column; align-items:center; gap:3px; min-width:54px; padding:6px 6px; border-radius:8px; cursor:pointer; font-size:.68rem; font-family:inherit; }
-  .cb:hover { background:#333; }
-  .cb .ic { font-size:22px; line-height:1.1; min-height:24px; }
-  .cb.off .ic, .cb.off .lb { color:#f87171; }
-  .cb.leave { background:var(--red); color:#fff; min-width:62px; }
-  .cb.leave:hover { background:#c01d33; }
-  #chat { position:absolute; top:0; right:0; bottom:0; width:min(360px,100%); background:#1f1f21; border-left:1px solid #333; display:none; flex-direction:column; z-index:6; }
-  #chat.open { display:flex; }
-  .ch { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid #333; }
-  .x { background:none; border:0; color:var(--text); font-size:18px; cursor:pointer; }
-  #log { flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
-  .msg { max-width:88%; padding:8px 12px; border-radius:12px; line-height:1.55; white-space:pre-wrap; word-break:break-word; font-size:.92rem; }
-  .user { align-self:flex-end; background:var(--blue); }
-  .bot { align-self:flex-start; background:var(--card); }
-  .hint { color:var(--sub); text-align:center; font-size:.85rem; margin:auto; }
-  .textrow { display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid #333; }
-  #text { flex:1; background:var(--card); color:var(--text); border:0; border-radius:8px; padding:10px 12px; font-size:16px; }
-  #send { background:var(--blue); color:#fff; border:0; border-radius:8px; padding:8px 14px; cursor:pointer; }
-  #join { position:absolute; inset:0; background:rgba(10,10,10,.82); display:flex; align-items:center; justify-content:center; z-index:10; }
-  .joinbox { background:#232323; border-radius:16px; padding:22px; width:min(340px,90%); text-align:center; }
-  .joinbox h1 { font-size:1.1rem; margin:0 0 6px; }
-  .sm { color:var(--sub); font-size:.8rem; line-height:1.6; margin:8px 0; }
-  #who { width:100%; background:var(--card); color:var(--text); border:0; border-radius:8px; padding:10px; font-size:16px; margin:6px 0 12px; }
-  #joinBtn { width:100%; background:var(--blue); color:#fff; border:0; border-radius:10px; padding:12px; font-size:1rem; font-weight:600; cursor:pointer; }
-  @media (max-width:480px) { #crole { display:none; } .cb { min-width:46px; padding:6px 3px; } }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ボイスAIアシスタント</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* アプリ枠（スマホサイズ対応） */
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
+    }
+
+    /* ヘッダー */
+    .header {
+      width: 100%;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 10;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .key-btn {
+      background: #f59e0b;
+      color: #0f172a;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 14px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* アバター表示エリア（中央） */
+    .avatar-area {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 10px 20px;
+    }
+
+    /* アバターの丸い枠 */
+    .avatar-frame {
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 4px solid #38bdf8;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
+      position: relative;
+      background-color: #ffffff;
+      transition: box-shadow 0.3s, border-color 0.3s;
+      cursor: pointer;
+    }
+
+    /* 声を出してお話し中の光る演出 */
+    .avatar-frame.speaking {
+      box-shadow: 0 0 45px rgba(56, 189, 248, 0.9), 0 0 15px rgba(255, 255, 255, 0.6);
+      border-color: #7dd3fc;
+    }
+
+    /* アバター動画本体 */
+    .avatar-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 15%;
+      display: block;
+    }
+
+    /* AIの状態バッジ */
+    .status-badge {
+      margin-top: 14px;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #38bdf8;
+    }
+
+    .status-badge.listening .status-dot {
+      background: #ef4444;
+      box-shadow: 0 0 8px #ef4444;
+    }
+
+    .status-badge.speaking .status-dot {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    /* 動画スピード切り替えセレクター */
+    .speed-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .speed-label {
+      font-weight: 500;
+    }
+
+    .speed-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      border-radius: 12px;
+      padding: 3px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .speed-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .speed-btn.active {
+      background: #0ea5e9;
+      color: #ffffff;
+      border-color: #38bdf8;
+      font-weight: bold;
+    }
+
+    /* 字幕表示エリア */
+    .subtitles-area {
+      width: 90%;
+      min-height: 80px;
+      max-height: 120px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #e2e8f0;
+      overflow-y: auto;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .subtitle-speaker {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+
+    .subtitle-text {
+      font-size: 14px;
+      word-break: break-word;
+    }
+
+    /* 操作フッター */
+    .controls-footer {
+      width: 100%;
+      padding: 15px 20px 25px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.8);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* 大きなマイクボタン */
+    .mic-button {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+      border: none;
+      color: white;
+      font-size: 32px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(14, 165, 233, 0.45);
+      transition: transform 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+
+    .mic-button:active {
+      transform: scale(0.92);
+    }
+
+    .mic-button.recording {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.8);
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    .mic-hint {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    /* カギ設定の小窓 */
+    .modal-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .modal-card {
+      background: #1e293b;
+      padding: 22px;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 360px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .modal-desc {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 10px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: white;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .modal-btns {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .modal-btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+    }
+
+    .modal-btn.cancel { background: #334155; color: white; }
+    .modal-btn.save { background: #0ea5e9; color: white; font-weight: bold; }
+  </style>
 </head>
 <body>
-<div id="app">
-  <div id="top"><span class="dot"></span><b id="cname"></b><span id="crole"></span><span id="timer">00:00</span></div>
-  <div id="stage">
-    <div id="tile">
-      <div id="avatar"></div>
-      <div id="caption"></div>
-      <div id="nameTag"><span id="nameText"></span></div>
+
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <div class="header">
+      <div class="title">🎙️ AIアバターアシスタント</div>
+      <button class="key-btn" id="keyBtn">🔑 カギ設定</button>
     </div>
-    <div id="status"></div>
-    <div id="self"><div id="selfInit">あ</div><video id="selfVideo" autoplay muted playsinline></video><span id="selfLabel">あなた</span></div>
-  </div>
-  <div id="bar">
-    <button class="cb" id="micBtn"><span class="ic">🎤</span><span class="lb">ミュート</span></button>
-    <button class="cb off" id="camBtn"><span class="ic">📷</span><span class="lb">ビデオ開始</span></button>
-    <button class="cb" id="spkBtn"><span class="ic">🔊</span><span class="lb">音声</span></button>
-    <button class="cb" id="ccBtn"><span class="ic">CC</span><span class="lb">字幕</span></button>
-    <button class="cb" id="chatBtn"><span class="ic">💬</span><span class="lb">チャット</span></button>
-    <button class="cb leave" id="leaveBtn"><span class="ic">✕</span><span class="lb">退出</span></button>
-  </div>
-  <div id="chat">
-    <div class="ch"><b>チャット</b><button class="x" id="chatClose" aria-label="閉じる">✕</button></div>
-    <div id="log"></div>
-    <div class="textrow"><input id="text" type="text" placeholder="文字でも質問できます"><button id="send">送信</button></div>
-  </div>
-  <div id="join">
-    <div class="joinbox">
-      <h1>ボイスAI通話</h1>
-      <div class="sm">話したい相手を選んでください。</div>
-      <select id="who" aria-label="キャラクター"></select>
-      <button id="joinBtn">通話に参加</button>
-      <div class="sm">マイクの使用を許可してください。カメラはオフのままでも参加できます。カメラの映像は、この画面に映すだけで、外には送られません。</div>
+
+    <!-- アバター表示エリア（中央） -->
+    <div class="avatar-area">
+      <!-- 丸い枠の中に動画アバター（過去の記憶を無視するおまじない付き） -->
+      <div class="avatar-frame" id="avatarFrame" title="クリックでテスト動作できます">
+        <video id="avatarVideo" class="avatar-video" src="avatar.mp4?v=20261109" poster="avatar.jpg?v=20261109" playsinline muted loop preload="auto"></video>
+      </div>
+
+      <!-- 状態バッジ -->
+      <div class="status-badge" id="statusBadge">
+        <span class="status-dot"></span>
+        <span id="statusText">待機中（マイクを押してね）</span>
+      </div>
+
+      <!-- 動画スピード切り替えボタン（お好みの速さを選べます） -->
+      <div class="speed-selector">
+        <span class="speed-label">口の速度:</span>
+        <button class="speed-btn" data-speed="0.7">ゆっくり (0.7x)</button>
+        <button class="speed-btn active" data-speed="0.85">自然 (0.85x)</button>
+        <button class="speed-btn" data-speed="1.0">標準 (1.0x)</button>
+      </div>
+
+      <!-- 字幕エリア -->
+      <div class="subtitles-area" id="subtitlesArea">
+        <div class="subtitle-speaker" id="subtitleSpeaker">AIアバター</div>
+        <div class="subtitle-text" id="subtitleText">こんにちは！下のマイクボタンを押して、何でも声で話しかけてみてね。</div>
+      </div>
+    </div>
+
+    <!-- 操作フッター -->
+    <div class="controls-footer">
+      <button class="mic-button" id="micBtn" title="押して話しかける">🎙️</button>
+      <div class="mic-hint" id="micHint">マイクボタンを押して話しかけてね</div>
+    </div>
+
+    <!-- カギ設定の小窓 -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-card">
+        <div class="modal-title">🔑 Google AIのカギ（APIキー）</div>
+        <div class="modal-desc">Google AI Studioのカギを貼り付けてください。あなたの端末だけに安全に保存されます。</div>
+        <input type="password" id="apiKeyInput" class="modal-input" placeholder="AIzaSy...">
+        <div class="modal-btns">
+          <button class="modal-btn cancel" id="modalCancel">キャンセル</button>
+          <button class="modal-btn save" id="modalSave">保存する</button>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<script>
-  // キーは Cloudflare Worker の中にだけあります
-  const WORKER_URL = 'https://chatbot-api.aandipartners-japan.workers.dev';
+  <script>
+    // ==========================================
+    // ★ HTMLに直接カギを埋め込んでおきたい場合は、
+    // 　下の「""」の中にカギを貼り付けてください！
+    // ==========================================
+    const EMBEDDED_API_KEY = ""; 
 
-  const $ = id => document.getElementById(id);
-  const log = $('log'), statusEl = $('status');
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const avatarFrame = document.getElementById('avatarFrame');
+    const avatarVideo = document.getElementById('avatarVideo');
+    const statusBadge = document.getElementById('statusBadge');
+    const statusText = document.getElementById('statusText');
+    const subtitleSpeaker = document.getElementById('subtitleSpeaker');
+    const subtitleText = document.getElementById('subtitleText');
+    const micBtn = document.getElementById('micBtn');
+    const micHint = document.getElementById('micHint');
 
+    let currentSpeed = 0.85; // 自然で落ち着いた速度
+    const speedBtns = document.querySelectorAll('.speed-btn');
+    speedBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        speedBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSpeed = parseFloat(btn.dataset.speed);
+        if (avatarVideo) {
+          avatarVideo.playbackRate = currentSpeed;
+        }
+        speakText(`速度を${btn.dataset.speed}倍に切り替えました。動きはどうですか？`);
+      });
+    });
 
-  // ===== キャラクターのイラスト（SVG・ほのぼのマンガ調） =====
-  const ART = [
-    // わたし（写真が読み込めないときの代わりの絵）
-    `<svg viewBox="0 0 120 120"><rect width="120" height="120" fill="#2a2a2e"/><circle cx="60" cy="48" r="20" fill="#5a5a62"/><path d="M18 124 Q22 82 60 82 Q98 82 102 124Z" fill="#5a5a62"/></svg>`,
-    // 桜井ことは
-    `<svg viewBox="0 0 120 120"><rect width="120" height="120" fill="#fff3c4"/>
-      <g stroke="#3a2a22" stroke-width="1.8" stroke-linejoin="round">
-      <path d="M30 52 Q10 60 14 92 Q22 98 28 86 Q30 70 36 60Z" fill="#7a4a2a"/><path d="M90 52 Q110 60 106 92 Q98 98 92 86 Q90 70 84 60Z" fill="#7a4a2a"/>
-      <path d="M26 124 Q28 98 60 96 Q92 98 94 124Z" fill="#7ed6b5"/>
-      <rect x="54" y="86" width="12" height="13" fill="#ffe6cc"/>
-      <circle cx="60" cy="58" r="32" fill="#ffe6cc"/>
-      <path d="M28 56 Q26 24 60 24 Q94 24 92 56 Q82 40 66 40 Q48 36 40 46 Q34 48 28 56Z" fill="#7a4a2a"/>
-      <path d="M30 52 L21 46 L21 59Z M30 52 L39 46 L39 59Z" fill="#ffd23f"/><path d="M90 52 L81 46 L81 59Z M90 52 L99 46 L99 59Z" fill="#ffd23f"/>
-      </g>
-      <ellipse cx="40" cy="72" rx="5" ry="3.2" fill="#ff9d8a" opacity=".7"/><ellipse cx="80" cy="72" rx="5" ry="3.2" fill="#ff9d8a" opacity=".7"/>
-      <path d="M37 69 l2 4 M41 69 l2 4 M77 69 l2 4 M81 69 l2 4" stroke="#e0705f" stroke-width="1.2" stroke-linecap="round"/>
-      <path d="M41 50 Q48 46 55 50M65 50 Q72 46 79 50" stroke="#3a2a22" stroke-width="2" fill="none" stroke-linecap="round"/>
-      <g class="eyes"><ellipse cx="48" cy="60" rx="2.8" ry="4" fill="#2b1d17"/><ellipse cx="72" cy="60" rx="2.8" ry="4" fill="#2b1d17"/><circle cx="47" cy="58.5" r="1.1" fill="#fff"/><circle cx="71" cy="58.5" r="1.1" fill="#fff"/></g>
-      <g class="mouth"><ellipse cx="60" cy="76" rx="5" ry="3" fill="#b5413d" stroke="#3a2a22" stroke-width="1.2"/></g></svg>`,
-    // 神谷剛
-    `<svg viewBox="0 0 120 120"><rect width="120" height="120" fill="#f2e4cf"/>
-      <g stroke="#3a2a22" stroke-width="1.8" stroke-linejoin="round">
-      <path d="M24 124 Q26 98 60 96 Q94 98 96 124Z" fill="#b5835a"/><path d="M46 98 L74 98 L72 124 L48 124Z" fill="#fffaf0"/>
-      <rect x="54" y="86" width="12" height="13" fill="#f6d5b5"/>
-      <circle cx="60" cy="58" r="32" fill="#f6d5b5"/>
-      <path d="M30 50 Q22 52 24 66 Q30 62 32 56Z" fill="#cfcfd6"/><path d="M90 50 Q98 52 96 66 Q90 62 88 56Z" fill="#cfcfd6"/>
-      <path d="M34 36 Q60 22 86 36 Q60 30 34 36Z" fill="#cfcfd6"/>
-      <circle cx="60" cy="68" r="2.6" fill="#eab08e"/>
-      <path d="M44 74 Q52 68 60 72 Q68 68 76 74 Q68 80 60 77 Q52 80 44 74Z" fill="#cfcfd6"/>
-      </g>
-      <ellipse cx="38" cy="70" rx="4.5" ry="3" fill="#f2a58d" opacity=".6"/><ellipse cx="82" cy="70" rx="4.5" ry="3" fill="#f2a58d" opacity=".6"/>
-      <path d="M40 46 Q48 42 56 46M64 46 Q72 42 80 46" stroke="#9a9aa6" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <g class="eyes"><ellipse cx="48" cy="58" rx="2.2" ry="3" fill="#2b1d17"/><ellipse cx="72" cy="58" rx="2.2" ry="3" fill="#2b1d17"/></g>
-      <g fill="rgba(255,255,255,.35)" stroke="#3a2a22" stroke-width="1.8"><circle cx="48" cy="58" r="9"/><circle cx="72" cy="58" r="9"/><path d="M57 58 H63"/></g>
-      <g class="mouth"><ellipse cx="60" cy="84" rx="4.5" ry="2.6" fill="#b5413d" stroke="#3a2a22" stroke-width="1.2"/></g></svg>`,
-    // ロボ太
-    `<svg viewBox="0 0 120 120"><rect width="120" height="120" fill="#d6eef7"/>
-      <g stroke="#3a2a22" stroke-width="1.8" stroke-linejoin="round">
-      <rect x="32" y="96" width="56" height="34" rx="8" fill="#9db4c4"/><circle cx="60" cy="110" r="5" fill="#ffd23f"/>
-      <rect x="54" y="86" width="12" height="12" fill="#7f95a8"/>
-      <line x1="60" y1="26" x2="60" y2="12" stroke-linecap="round"/><circle cx="60" cy="10" r="5" fill="#ff7a7a"/>
-      <rect x="26" y="26" width="68" height="62" rx="14" fill="#c9d9e4"/>
-      <circle cx="24" cy="58" r="4" fill="#9db4c4"/><circle cx="96" cy="58" r="4" fill="#9db4c4"/>
-      </g>
-      <circle cx="36" cy="70" r="4.5" fill="#ff9d8a" opacity=".7"/><circle cx="84" cy="70" r="4.5" fill="#ff9d8a" opacity=".7"/>
-      <g class="eyes"><g stroke="#3a2a22" stroke-width="1.8"><circle cx="46" cy="54" r="9" fill="#fff"/><circle cx="74" cy="54" r="9" fill="#fff"/></g><circle cx="46" cy="55" r="4" fill="#2b1d17"/><circle cx="74" cy="55" r="4" fill="#2b1d17"/><circle cx="44.5" cy="53.5" r="1.3" fill="#fff"/><circle cx="72.5" cy="53.5" r="1.3" fill="#fff"/></g>
-      <g class="mouth"><rect x="50" y="72" width="20" height="7" rx="3" fill="#b5413d" stroke="#3a2a22" stroke-width="1.5"/></g></svg>`
-  ];
+    const keyBtn = document.getElementById('keyBtn');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const modalCancel = document.getElementById('modalCancel');
+    const modalSave = document.getElementById('modalSave');
 
-  // ===== 架空のキャラクター（ここを書き換えると自分のキャラを作れます） =====
-  const ME_BG = 'linear-gradient(#dde5ee, #f6f8fb)';   // 背景なし（無地）
-  const ME_GREET = 'こんにちは、はるです。来てくれてありがとう。何でも話しかけてね。';
-  const ME_PROMPT = 'あなたは「はる」という名前で、画面に映っているイラストの人物になりきって話す役です。性格はとても優しく、相手の話をうれしそうに聞きます。口ぐせは「たしかに！」で、相づちとしてときどき（毎回ではなく）使います。好きなことは、旅行、映画、ごはんです。仕事は金融事務です。自然な話し言葉で話します。ここに書いていない個人的な事実（年齢・住所・家族・予定・連絡先など）は知らないので、聞かれても作り話はせず、「それは内緒」「ちょっと分からないな」のように答えてください。金融の仕事の話は一般的な雑談にとどめ、投資の売買など具体的なお金の助言はしないでください。';
-  const CHARACTERS = [
-    { name:'はる', role:'旅行・映画・ごはん好きの優しい人', photo:'img/haru-art.webp', pos:'51% 28%', bg:ME_BG, mouth:{ x:0.5104, y:0.4398, w:0.106, flat:true }, pitch:1.1, rate:1.0, greeting:ME_GREET, prompt:ME_PROMPT },
-    { name:'桜井 ことは', role:'25歳・明るい案内役', avatar:'👩',
-      // 画像を使うときは、次の行の「//」を消します：
-      // img:{ base:'img/kotoha.png', mouth:'img/kotoha_mouth.png', blink:'img/kotoha_blink.png' }, pitch:1.35, rate:1.05,
-      greeting:'こんにちは！桜井ことはです。今日は何でも聞いてくださいね。',
-      prompt:'あなたは「桜井ことは」という25歳の架空の女性です。明るく元気で、親しみやすく、少しおっちょこちょいな性格です。友だちに話すような、やわらかい話し言葉で話します。' },
-    { name:'神谷 剛', role:'52歳・喫茶店のマスター', avatar:'👨‍🦳', pitch:0.75, rate:0.92,
-      greeting:'いらっしゃい。神谷です。コーヒーでも飲みながら、ゆっくり話しましょうか。',
-      prompt:'あなたは「神谷剛」という52歳の架空の男性で、小さな町の喫茶店のマスターです。落ち着いていて穏やか、聞き上手で、ときどき人生経験にもとづく一言を添えます。丁寧だけど堅すぎない話し方をします。' },
-    { name:'ロボ太', role:'陽気なおしゃべりロボット', avatar:'🤖', pitch:1.1, rate:1.1,
-      greeting:'ピピッ！ロボ太だよ。なんでも聞いてほしいロ！',
-      prompt:'あなたは「ロボ太」という陽気で好奇心旺盛な架空のロボットです。文の終わりに、ときどき「ロ」をつけて話します。ちょっと自慢げですが、憎めない性格です。' }
-  ];
-  let cur = CHARACTERS[0];
-  const hintHTML = () => '<div class="hint" id="hint">' + cur.name + 'さんとの会話が、ここに残ります。</div>';
+    const API_KEY_STORAGE = 'voice_ai_gemini_key';
 
-  // ===== 口パク（写真の口まわりを少しゆがめて、口を開けたように見せる） =====
-  function makeLip(ctx, W, H, m) {
-    const cx = Math.round(m.x * W), cy = Math.round(m.y * H), hw = Math.max(8, Math.round(m.w * W / 2));
-    const rx0 = Math.max(0, cx - Math.round(hw * 2.2)), rx1 = Math.min(W, cx + Math.round(hw * 2.2));
-    const ry0 = Math.max(0, cy - Math.round(hw * 0.9)), ry1 = Math.min(H, cy + Math.round(hw * 3.4));
-    const rw = rx1 - rx0, rh = ry1 - ry0, top = cy - ry0, R = hw * 2.2, flat = !!m.flat;
-    const src = ctx.getImageData(rx0, ry0, rw, rh), sd = src.data;
-    const out = ctx.createImageData(rw, rh), od = out.data;
-    const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-    return function (open) {
-      const d = open * hw * 0.5;
-      if (d < 0.4) { ctx.putImageData(src, rx0, ry0); return; }
-      od.set(sd);
-      for (let y = top + 1; y < rh; y++) {
-        const Y = ry0 + y, t = (Y - cy) / R;
-        if (t >= 1) break;
-        const wy = 0.5 * (1 + Math.cos(Math.PI * t));
-        for (let x = 0; x < rw; x++) {
-          const X = rx0 + x, ax = (X - cx) / (hw * 1.15), a2 = ax * ax;
-          if (a2 >= 1) continue;
-          const wx = 1 - a2, s = d * wx * wy, sdist = (Y - s) - cy;
-          const skY = Math.max(y - s, top), y0 = Math.floor(skY), y1 = Math.min(rh - 1, y0 + 1), f = skY - y0;
-          const o = (y * rw + x) * 4, p0 = (y0 * rw + x) * 4, p1 = (y1 * rw + x) * 4;
-          let r = sd[p0] * (1 - f) + sd[p1] * f, g = sd[p0 + 1] * (1 - f) + sd[p1 + 1] * f, b = sd[p0 + 2] * (1 - f) + sd[p1 + 2] * f;
-          if (sdist < 0) {
-            const gh = Math.max(1e-4, d * wx), u = (Y - cy) / gh;
-            const ex = Math.abs(X - cx) / hw, dark = 0.6 + 0.4 * Math.max(0, 1 - ex * ex);
-            let cr, cg, cb, al;
-            if (flat) {   // イラスト用：単色の口の中
-              const k2 = 0.78 + 0.22 * Math.max(0, 1 - ex * ex), dk = 1 - 0.30 * ss(0.25, 1, u);
-              cr = 128 * k2 * dk; cg = 42 * k2 * dk; cb = 54 * k2 * dk; al = Math.min(1, -sdist / 0.9);
-            } else {      // 写真用：歯と口の中
-              const inner = 1 - 0.35 * ss(0.3, 1, u), k = ss(0.18, 0.5, u);
-              cr = (226 * (1 - k) + 66 * inner * k) * dark; cg = (210 * (1 - k) + 22 * inner * k) * dark; cb = (204 * (1 - k) + 28 * inner * k) * dark;
-              al = Math.min(1, -sdist / 1.3);
-            }
-            r = cr * al + r * (1 - al); g = cg * al + g * (1 - al); b = cb * al + b * (1 - al);
-          }
-          od[o] = r; od[o + 1] = g; od[o + 2] = b;
+    // カギを取得
+    function getApiKey() {
+      if (EMBEDDED_API_KEY && EMBEDDED_API_KEY.trim() !== "") {
+        return EMBEDDED_API_KEY.trim();
+      }
+      return localStorage.getItem(API_KEY_STORAGE) || "";
+    }
+
+    // カギ設定モーダル
+    keyBtn.addEventListener('click', () => {
+      apiKeyInput.value = getApiKey();
+      modalOverlay.style.display = 'flex';
+    });
+
+    modalCancel.addEventListener('click', () => {
+      modalOverlay.style.display = 'none';
+    });
+
+    modalSave.addEventListener('click', () => {
+      const val = apiKeyInput.value.trim();
+      if (val) {
+        localStorage.setItem(API_KEY_STORAGE, val);
+        modalOverlay.style.display = 'none';
+        speakText('新しいカギをセットしました！何でも声で話しかけてみてくださいね。');
+      } else {
+        localStorage.removeItem(API_KEY_STORAGE);
+        modalOverlay.style.display = 'none';
+      }
+    });
+
+    // ==========================================
+    // 1. AIが声でお返事する機能（位置固定＆口パク連動！）
+    // ==========================================
+    function speakText(text) {
+      if (!window.speechSynthesis) {
+        subtitleText.textContent = text;
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ja-JP';
+      utterance.rate = 1.05;
+      utterance.pitch = 1.15; // 明るく自然な女性の声のトーン
+
+      const voices = window.speechSynthesis.getVoices();
+      const jaVoice = voices.find(v => v.lang.includes('ja') && (v.name.includes('Google') || v.name.includes('Kyoko') || v.name.includes('Ayumi') || v.name.includes('Natural') || v.name.includes('Haruka')));
+      if (jaVoice) {
+        utterance.voice = jaVoice;
+      }
+
+      // 音声開始：動画を指定スピードで再生！
+      utterance.onstart = () => {
+        avatarFrame.classList.add('speaking');
+        statusBadge.className = 'status-badge speaking';
+        statusText.textContent = 'お話し中…🗣️';
+        subtitleSpeaker.textContent = 'AIアバター';
+        subtitleText.textContent = text;
+        if (avatarVideo) {
+          avatarVideo.playbackRate = currentSpeed;
+          avatarVideo.play().catch(e => console.log('Video play error:', e));
+        }
+      };
+
+      // 音声終了：動画を一時停止して最初の笑顔に戻る！
+      utterance.onend = () => {
+        avatarFrame.classList.remove('speaking');
+        statusBadge.className = 'status-badge';
+        statusText.textContent = '待機中（マイクを押してね）';
+        if (avatarVideo) {
+          avatarVideo.pause();
+          avatarVideo.currentTime = 0;
+        }
+      };
+
+      utterance.onerror = () => {
+        avatarFrame.classList.remove('speaking');
+        statusBadge.className = 'status-badge';
+        statusText.textContent = '待機中（マイクを押してね）';
+        if (avatarVideo) {
+          avatarVideo.pause();
+          avatarVideo.currentTime = 0;
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // アバターの顔をクリックすると、テストでおしゃべりする機能！
+    avatarFrame.addEventListener('click', () => {
+      speakText('こんにちは！お声を聞かせてくださいね。マイクを押してお話しできますよ！');
+    });
+
+    // ==========================================
+    // 2. 音声認識（あなたの声を聴き取る耳！）
+    // ==========================================
+    let recognition = null;
+    let isRecording = false;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        micBtn.classList.add('recording');
+        statusBadge.className = 'status-badge listening';
+        statusText.textContent = '聞いています…🎙️';
+        micHint.textContent = 'お話し終わると自動でお返事します';
+        subtitleSpeaker.textContent = 'あなた';
+        subtitleText.textContent = 'お話し中…';
+      };
+
+      recognition.onresult = (event) => {
+        const spokenText = event.results[0][0].transcript;
+        subtitleSpeaker.textContent = 'あなた';
+        subtitleText.textContent = spokenText;
+        handleUserQuery(spokenText);
+      };
+
+      recognition.onerror = (event) => {
+        console.error(event);
+        resetMic();
+        if (event.error === 'not-allowed') {
+          alert('マイクの利用が許可されていません。ブラウザのアドレスバーのマイクマークから許可してくださいね！');
+        }
+      };
+
+      recognition.onend = () => {
+        resetMic();
+      };
+    } else {
+      micHint.textContent = 'このブラウザは音声認識に対応していません（ChromeやEdge推奨）';
+    }
+
+    function resetMic() {
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micHint.textContent = 'マイクボタンを押して話しかけてね';
+    }
+
+    // マイクボタンクリック
+    micBtn.addEventListener('click', () => {
+      if (!recognition) {
+        alert('このブラウザはマイクに対応していません。Google ChromeまたはEdgeでお試しください！');
+        return;
+      }
+
+      if (isRecording) {
+        recognition.stop();
+      } else {
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        avatarFrame.classList.remove('speaking');
+        if (avatarVideo) {
+          avatarVideo.pause();
+          avatarVideo.currentTime = 0;
+        }
+
+        try {
+          recognition.start();
+        } catch (e) {
+          recognition.stop();
         }
       }
-      ctx.putImageData(out, rx0, ry0);
-    };
-  }
-
-  let lipCur = 0;
-  function lipTick(ts) {
-    const av = $('avatar'), lip = av._lip;
-    if (lip) {
-      const talking = av.classList.contains('talk'), t = ts / 1000;
-      const target = talking ? 0.25 + 0.75 * Math.abs(Math.sin(t * 8.5 + Math.sin(t * 2.7) * 2.2)) * (0.7 + 0.3 * Math.sin(t * 4.1)) : 0;
-      let next = lipCur + (target - lipCur) * 0.45;
-      if (!talking && next < 0.03) next = 0;
-      if (Math.abs(next - lipCur) > 0.01 || (next === 0 && lipCur !== 0)) { lipCur = next; lip(lipCur); }
-    }
-    requestAnimationFrame(lipTick);
-  }
-  requestAnimationFrame(lipTick);
-
-  // 画像モード用：キャラクターに img を設定すると、イラスト画像で口パク・まばたきをします
-  function buildAvatar(i) {
-    const av = $('avatar'), c = CHARACTERS[i];
-    av._lip = null; lipCur = 0;
-    if (c.photo) {
-      const im = new Image();
-      im.onload = () => {
-        if (cur !== c) return;                       // 読み込み中に別のキャラへ切り替えたとき
-        const cv = document.createElement('canvas');
-        cv.className = 'photo'; cv.width = im.naturalWidth; cv.height = im.naturalHeight;
-        cv.style.objectPosition = c.pos || '50% 30%';
-        const ctx = cv.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(im, 0, 0);
-        av.innerHTML = '';
-        try { av._lip = makeLip(ctx, cv.width, cv.height, c.mouth); av.appendChild(cv); }
-        catch (e) { im.className = 'photo'; im.style.objectPosition = c.pos || '50% 30%'; av.appendChild(im); }   // 口パクが使えないときは静止画
-      };
-      im.onerror = () => { if (cur === c) av.innerHTML = ART[i]; };
-      im.src = c.photo;
-      return;
-    }
-    if (!c.img) { av.innerHTML = ART[i]; return; }
-    av.innerHTML = '<div class="layers"><img class="base" alt="' + c.name + '" src="' + c.img.base + '">' +
-      '<img class="ly mouthL" alt="" src="' + c.img.mouth + '"><img class="ly blinkL" alt="" src="' + c.img.blink + '"></div>';
-    av.querySelector('.base').onerror = () => { av.innerHTML = ART[i]; };   // 画像が無ければ今のイラストに戻す
-  }
-  setInterval(() => {   // 話している間、口の画像を点滅させる
-    const av = $('avatar'), m = av.querySelector('.mouthL');
-    if (m) m.classList.toggle('on', av.classList.contains('talk') && !m.classList.contains('on'));
-  }, 140);
-  setInterval(() => {   // まばたき
-    const b = $('avatar').querySelector('.blinkL');
-    if (b) { b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 130); }
-  }, 4000);
-
-  function applyChar(i) {
-    cur = CHARACTERS[i];
-    buildAvatar(i);
-    $('cname').textContent = cur.name;
-    $('crole').textContent = cur.role;
-    $('nameText').textContent = cur.name;
-    const bg = (ART[i].match(/fill="(#[0-9a-fA-F]{3,6})"/) || [])[1];
-    $('avatar').style.background = cur.bg || bg || '#222';
-    log.innerHTML = hintHTML();
-  }
-  CHARACTERS.forEach((c, i) => { const o = document.createElement('option'); o.value = i; o.textContent = c.name; $('who').appendChild(o); });
-
-  let active = false;      // 会話モード中か
-  let muted = false;       // 声で答えるか
-  let busy = false;        // AIが考え中か
-  let recog = null;
-  let history = [];        // {role:'user'|'model', text}
-
-  function setState(cls, msg) { statusEl.textContent = msg || ''; $('avatar').dataset.s = cls || ''; $('self').classList.toggle('hear', cls === 'listening'); }
-
-  function addMsg(who, text) {
-    const h = $('hint'); if (h) h.remove();
-    const d = document.createElement('div');
-    d.className = 'msg ' + who;
-    d.textContent = text;
-    log.appendChild(d);
-    log.scrollTop = log.scrollHeight;
-  }
-
-  // ---- AIに質問 ----
-  async function ask(userText) {
-    const instruction =
-      cur.prompt + '\n' +
-      '声で会話しているので、日本語の話し言葉で、2〜3文以内で簡潔に答えてください。記号・箇条書き・URL・絵文字は使わないでください。' +
-      '相手に本当にAIかどうか聞かれたときだけは、AIが演じているキャラクターだと正直に答えてください。';
-    const contents = history.slice(-6).map(h => ({ role: h.role, parts: [{ text: h.text }] }));
-    contents.push({ role: 'user', parts: [{ text: instruction + '\n\n【質問】\n' + userText }] });
-
-    let timer;
-    const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('時間切れ')), 15000); });
-    try {
-      const res = await Promise.race([
-        fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents }) }),
-        timeout
-      ]);
-      const data = await res.json();
-      const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-      if (parts) {
-        const ans = parts.filter(p => !p.thought && p.text).map(p => p.text).join('').trim();
-        if (ans) return ans;
-      }
-      if (data && data.error && data.error.code === 429) return '今日の無料の回数を使い切りました。また明日お試しください。';
-      return 'うまく答えを作れませんでした。もう一度お願いします。';
-    } catch (e) {
-      return '通信に失敗しました。（' + e.message + '）';
-    } finally { clearTimeout(timer); }
-  }
-
-  // ---- 声で読み上げ ----
-  function speak(text) {
-    return new Promise(resolve => {
-      if (muted || !('speechSynthesis' in window)) return resolve();
-      const clean = text.replace(/https?:\/\/\S+/g, '').replace(/[*#`>_~\-]{1,}/g, ' ');
-      const u = new SpeechSynthesisUtterance(clean);
-      u.lang = 'ja-JP';
-      u.pitch = cur.pitch; u.rate = cur.rate;
-      const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ja'));
-      if (v) u.voice = v;
-      u.onstart = () => $('avatar').classList.add('talk');
-      u.onend = u.onerror = () => { $('avatar').classList.remove('talk'); resolve(); };
-      speechSynthesis.cancel();
-      speechSynthesis.speak(u);
     });
-  }
 
-  // ---- 1回のやりとり ----
-  async function handle(userText) {
-    if (!userText) return;
-    busy = true;
-    addMsg('user', userText);
-    $('caption').textContent = '';
-    setState('thinking', '考え中…');
-    const ans = await ask(userText);
-    history.push({ role: 'user', text: userText }, { role: 'model', text: ans });
-    addMsg('bot', ans);
-    showCaption(ans);
-    setState('speaking', '');
-    await speak(ans);
-    clearCaptionLater();
-    busy = false;
-    if (active) listen(); else setState('', '');
-  }
+    // ==========================================
+    // 3. AIの頭脳（Google Gemini ＋ 内蔵スマート頭脳）
+    // ==========================================
+    async function handleUserQuery(query) {
+      statusBadge.className = 'status-badge';
+      statusText.textContent = 'AIが考え中…💭';
 
-  // ---- 聞き取り ----
-  function listen() {
-    if (!SR) { setState('', 'このブラウザは音声入力に対応していません。文字で入力してください。'); active = false; return; }
-    if (!active || busy) return;
-    recog = new SR();
-    recog.lang = 'ja-JP';
-    recog.interimResults = true;
-    recog.continuous = false;
-    let finalText = '';
-    recog.onstart = () => setState('listening', '聞いています…（話してください）');
-    recog.onresult = e => {
-      let t = '';
-      for (const r of e.results) t += r[0].transcript;
-      finalText = t;
-      statusEl.textContent = t;
-    };
-    recog.onerror = e => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        active = false; setMicUI(false); setState('', 'マイクの使用が許可されていません。ブラウザの設定で許可してください。');
+      const apiKey = getApiKey();
+      const q = query.toUpperCase();
+      let reply = '';
+
+      // 内蔵知識（カギがなくても即座に声でおしゃべり！）
+      if (q.includes('こんにちは') || q.includes('初めまして') || q.includes('ハロー')) {
+        reply = 'こんにちは！お声を聞かせてくれてありがとうございます。今日はどんなお話をしましょうか？';
+      } else if (q.includes('自己紹介') || q.includes('誰') || q.includes('名前')) {
+        reply = '私はあなたの専属AIアバターアシスタントです！口頭でお話しできるのがとっても嬉しいです。何でも聞いてくださいね！';
+      } else if (q.includes('元気') || q.includes('調子')) {
+        reply = '絶好調ですよ！あなたとお話しできて元気いっぱいです。あなたは今日どんな一日でしたか？';
+      } else if (q.includes('ミネストローネ') || q.includes('レシピ') || q.includes('料理')) {
+        reply = 'ミネストローネですね！玉ねぎ、人参、ベーコンを炒めて、トマト缶とコンソメで煮込むだけでとっても美味しく作れますよ！';
+      } else if (q.includes('GDP') || q.includes('経済') || q.includes('成長率')) {
+        reply = '世界のGDPトップはアメリカ、2位が中国、3位ドイツ、4位日本です！インドの急成長もすごい勢いですね。';
+      } else if (q.includes('日本') && (q.includes('予測') || q.includes('今後') || q.includes('将来'))) {
+        reply = '今後の日本は、賃上げとデフレ脱却、そしてAIや自動化技術への投資が最大の鍵になると予測されています！';
+      } else if (q.includes('天気')) {
+        reply = '今日はお散歩日和だといいですね！お出かけのときは上着を一枚持っていくと安心ですよ。';
+      } else if (q.includes('ありがとう')) {
+        reply = 'どういたしまして！お役に立ててとっても嬉しいです！';
       }
-    };
-    recog.onend = () => {
-      if (!active) return;
-      if (finalText.trim()) handle(finalText.trim());
-      else setTimeout(listen, 300);   // 無音なら聞き直し
-    };
-    try { recog.start(); } catch (e) {}
-  }
 
-  function stopAll() {
-    active = false;
-    try { recog && recog.abort(); } catch (e) {}
-    speechSynthesis.cancel();
-    busy = false;
-    setState('', '');
-  }
+      // カギがあればGoogle Gemini AIに口頭用ショート回答を作ってもらう
+      if (!reply && apiKey) {
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: 'あなたは音声で会話しているAIアバターです。親しみやすく明るいトーンで、長文にならず「2〜3文」で簡潔に口頭でお返事してください：\n\n' + query }]
+              }]
+            })
+          });
 
-  // ---- 通話画面のしくみ ----
-  let inCall = false, ccOn = true, camStream = null, timerId = null, t0 = 0, capTimer = null;
-  const two = n => String(n).padStart(2, '0');
-  function startTimer() {
-    t0 = Date.now(); $('timer').textContent = '00:00'; clearInterval(timerId);
-    timerId = setInterval(() => { const t = Math.floor((Date.now() - t0) / 1000); $('timer').textContent = two(Math.floor(t / 60)) + ':' + two(t % 60); }, 1000);
-  }
-  function showCaption(t) { clearTimeout(capTimer); $('caption').textContent = ccOn ? t : ''; }
-  function clearCaptionLater() { clearTimeout(capTimer); capTimer = setTimeout(() => { $('caption').textContent = ''; }, 2500); }
-  function setBtn(id, on, iconOn, iconOff, lbOn, lbOff) {
-    const b = $(id); b.classList.toggle('off', !on);
-    if (iconOn) b.querySelector('.ic').textContent = on ? iconOn : iconOff;
-    b.querySelector('.lb').textContent = on ? lbOn : lbOff;
-  }
-  function setMicUI(on) { setBtn('micBtn', on, '🎤', '🔇', 'ミュート', 'ミュート解除'); }
+          const data = await response.json();
+          if (data && data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+            const parts = data.candidates[0].content.parts;
+            const answerParts = parts.filter(p => !p.thought && p.text);
+            reply = (answerParts.length > 0 ? answerParts : parts).map(p => p.text).join(' ').trim();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
 
-  function startCall() {
-    $('join').style.display = 'none';
-    inCall = true; active = true; setMicUI(true); startTimer();
-    // iPhone対策：タップ直後に無音の読み上げを1回して、声を使えるようにする
-    try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
-    busy = true;
-    addMsg('bot', cur.greeting); showCaption(cur.greeting);
-    setState('speaking', '');
-    speak(cur.greeting).then(() => { busy = false; clearCaptionLater(); listen(); });
-  }
+      if (!reply) {
+        reply = `「${query}」ですね！しっかり声が届きましたよ。もっといろんなお話を聞かせてくださいね！`;
+      }
 
-  function stopCam() {
-    if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
-    $('selfVideo').srcObject = null; $('selfVideo').style.display = 'none'; $('selfInit').style.display = 'flex';
-    setBtn('camBtn', false, '📷', '📷', 'ビデオ停止', 'ビデオ開始');
-  }
-
-  $('joinBtn').addEventListener('click', startCall);
-  $('who').addEventListener('change', e => applyChar(+e.target.value));
-
-  $('micBtn').addEventListener('click', () => {
-    if (!inCall) return;
-    if (active) { active = false; try { recog && recog.abort(); } catch (e) {} setState('', ''); setMicUI(false); }
-    else { active = true; setMicUI(true); listen(); }
-  });
-
-  $('camBtn').addEventListener('click', async () => {
-    if (camStream) return stopCam();
-    try {
-      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-      $('selfVideo').srcObject = camStream; $('selfVideo').style.display = 'block'; $('selfInit').style.display = 'none';
-      setBtn('camBtn', true, '📷', '📷', 'ビデオ停止', 'ビデオ開始');
-    } catch (e) {
-      statusEl.textContent = 'カメラを使えませんでした。ブラウザの許可を確認してください。';
-      setTimeout(() => { if (statusEl.textContent.startsWith('カメラ')) statusEl.textContent = ''; }, 3500);
+      // 声でお返事し、お口をパクパク動かす！
+      speakText(reply);
     }
-  });
+  </script>
 
-  $('spkBtn').addEventListener('click', () => {
-    muted = !muted;
-    setBtn('spkBtn', !muted, '🔊', '🔇', '音声', '音声オフ');
-    if (muted) speechSynthesis.cancel();
-  });
-
-  $('ccBtn').addEventListener('click', () => {
-    ccOn = !ccOn; setBtn('ccBtn', ccOn, null, null, '字幕', '字幕オフ');
-    if (!ccOn) $('caption').textContent = '';
-  });
-
-  $('chatBtn').addEventListener('click', () => $('chat').classList.toggle('open'));
-  $('chatClose').addEventListener('click', () => $('chat').classList.remove('open'));
-
-  $('leaveBtn').addEventListener('click', () => {
-    if (!inCall) return;
-    stopAll(); stopCam(); clearInterval(timerId); clearTimeout(capTimer);
-    inCall = false; history = []; log.innerHTML = hintHTML();
-    $('caption').textContent = ''; setState('', ''); setMicUI(true); muted = false; setBtn('spkBtn', true, '🔊', '🔇', '音声', '音声オフ');
-    $('chat').classList.remove('open'); $('timer').textContent = '00:00';
-    $('join').style.display = 'flex';
-  });
-
-  function sendText() {
-    const t = $('text').value.trim();
-    if (!t || busy) return;
-    $('text').value = '';
-    handle(t);
-  }
-  $('send').addEventListener('click', sendText);
-  $('text').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
-
-  applyChar(0);
-  if ('speechSynthesis' in window) speechSynthesis.getVoices();
-  if (!SR) statusEl.textContent = 'このブラウザは音声入力に対応していません（文字入力は使えます）。';
-</script>
 </body>
 </html>
