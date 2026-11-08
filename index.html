@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zoom Meeting - AIアシスタント</title>
+  <title>Zoom Workplace - ai</title>
   <style>
     * {
       box-sizing: border-box;
@@ -13,8 +13,8 @@
     }
 
     body {
-      background-color: #000000;
-      color: #f8fafc;
+      background-color: #0b0b0b;
+      color: #f1f5f9;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       display: flex;
       justify-content: center;
@@ -23,105 +23,166 @@
       overflow: hidden;
     }
 
-    /* Zoomミーティング画面枠 */
-    .zoom-container {
+    /* Zoomミーティングアプリ枠 */
+    .zoom-app {
       width: 100%;
-      max-width: 480px;
+      max-width: 680px;
       height: 100vh;
-      background-color: #121212;
+      background-color: #1a1a1a;
       display: flex;
       flex-direction: column;
       position: relative;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
     }
 
-    /* Zoom 上部ヘッダーバー */
-    .zoom-header {
+    /* ==========================================
+       Zoom 上部ツールバー（本物のZoomヘッダー）
+       ========================================== */
+    .zoom-top-bar {
       width: 100%;
-      padding: 12px 16px;
+      height: 48px;
+      background: #1e1e1e;
+      border-bottom: 1px solid #2d2d2d;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(26, 26, 26, 0.95);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      z-index: 20;
+      padding: 0 16px;
+      z-index: 30;
     }
 
-    .meeting-info {
+    .top-left {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+    }
+
+    .zoom-shield-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #22c55e;
+      cursor: pointer;
+    }
+
+    .meeting-title {
       font-size: 13px;
       font-weight: 600;
       color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .shield-icon {
-      color: #22c55e; /* Zoomのグリーンシールド */
-      font-size: 14px;
+    .top-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .rec-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #ef4444;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+
+    .rec-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
     .meeting-timer {
-      font-size: 12px;
-      color: #94a3b8;
       font-variant-numeric: tabular-nums;
-    }
-
-    .leave-btn {
-      background: #ef4444;
-      color: white;
-      border: none;
-      padding: 5px 12px;
-      border-radius: 6px;
       font-size: 12px;
-      font-weight: bold;
+      color: #cbd5e1;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .view-btn {
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      color: #cbd5e1;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
       cursor: pointer;
-      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
-    .leave-btn:hover {
-      background: #dc2626;
+    .view-btn:hover {
+      background: #333333;
     }
 
-    /* ビデオ表示メインエリア */
-    .video-main-area {
+    /* ==========================================
+       メインビデオ表示エリア（Zoomビデオグリッド）
+       ========================================== */
+    .video-viewport {
       flex: 1;
       width: 100%;
-      padding: 10px;
+      background: #000000;
+      padding: 12px;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       position: relative;
-      background: #000000;
       overflow: hidden;
     }
 
-    /* 相手のZoomビデオパネル（四角いカメラ画面！） */
-    .remote-video-card {
+    /* 相手（ai）のZoomビデオカード */
+    .video-card {
       width: 100%;
       height: 100%;
-      max-height: calc(100vh - 160px);
-      background: #1e1e1e;
-      border-radius: 12px;
+      max-height: calc(100vh - 140px);
+      background: #141414;
+      border-radius: 10px;
       position: relative;
       overflow: hidden;
-      border: 3px solid transparent;
-      transition: border-color 0.2s, box-shadow 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 3px solid transparent;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.15s, box-shadow 0.15s;
       cursor: pointer;
     }
 
-    /* 発言中：Zoom特有のグリーン枠で光る！ */
-    .remote-video-card.speaking {
-      border-color: #22c55e;
-      box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+    /* お話し中：Zoom本物と同じ鮮やかなグリーンの発言者枠！ */
+    .video-card.speaking {
+      border-color: #00da5a;
+      box-shadow: 0 0 24px rgba(0, 218, 90, 0.45);
     }
 
     /* アバター動画 */
-    .remote-avatar-video {
+    .remote-video {
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -129,143 +190,190 @@
       display: block;
     }
 
-    /* 相手の名前バッジ（Zoom左下ネームタグ） */
-    .video-name-tag {
+    /* Zoom 左下ネームタグ（ai） */
+    .name-tag {
       position: absolute;
-      bottom: 12px;
-      left: 12px;
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(4px);
-      padding: 4px 10px;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      padding: 5px 12px;
       border-radius: 4px;
-      font-size: 12px;
+      font-size: 13px;
+      font-weight: 500;
       display: flex;
       align-items: center;
       gap: 6px;
       color: #ffffff;
-      z-index: 5;
+      z-index: 10;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .name-audio-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #22c55e;
+    .mic-status-icon {
+      font-size: 12px;
+      color: #22c55e;
     }
 
-    /* 自分のセルフビュー小窓（Zoomの右上インカメラ風！） */
-    .self-view-pip {
+    /* Zoom 右上セルフビュー小窓（インカメラ風） */
+    .self-view {
       position: absolute;
       top: 14px;
       right: 14px;
-      width: 90px;
-      height: 120px;
-      background: #262626;
+      width: 110px;
+      height: 140px;
+      background: #222222;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 10;
-      color: #94a3b8;
-      font-size: 10px;
+      z-index: 15;
+      overflow: hidden;
     }
 
-    .self-icon {
-      font-size: 26px;
-      margin-bottom: 4px;
+    .self-avatar-icon {
+      font-size: 34px;
+      color: #64748b;
+      margin-bottom: 6px;
     }
 
-    .self-name {
-      color: #e2e8f0;
-      font-weight: 500;
-    }
-
-    /* Zoom リアルタイム字幕（Live Captions） */
-    .zoom-captions {
+    .self-name-tag {
       position: absolute;
-      bottom: 45px;
-      left: 14px;
-      right: 14px;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(6px);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 13px;
-      line-height: 1.4;
-      color: #f1f5f9;
-      text-align: center;
-      z-index: 8;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.2s;
-    }
-
-    .caption-speaker {
+      bottom: 6px;
+      left: 6px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 2px 6px;
+      border-radius: 3px;
       font-size: 10px;
-      color: #38bdf8;
-      margin-bottom: 2px;
-      font-weight: bold;
-    }
-
-    /* Zoom 下部コントロールバー（会議操作ボタン群） */
-    .zoom-bottom-bar {
-      width: 100%;
-      background: #1a1a1a;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
       display: flex;
-      justify-content: space-around;
       align-items: center;
-      padding: 8px 10px 14px;
-      z-index: 20;
+      gap: 3px;
     }
 
-    /* 各操作ボタン */
-    .control-item {
+    /* Zoom 自動字幕（Live Transcript / 字幕） */
+    .zoom-live-transcript {
+      position: absolute;
+      bottom: 55px;
+      left: 20px;
+      right: 20px;
+      background: rgba(15, 15, 15, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #f8fafc;
+      text-align: center;
+      z-index: 12;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+      transition: opacity 0.2s;
+    }
+
+    .transcript-speaker {
+      font-size: 11px;
+      font-weight: bold;
+      color: #0ea5e9;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    /* ==========================================
+       Zoom 下部コントロールツールバー（本物のZoom）
+       ========================================== */
+    .zoom-toolbar {
+      width: 100%;
+      height: 72px;
+      background: #181818;
+      border-top: 1px solid #282828;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 16px;
+      z-index: 30;
+    }
+
+    .toolbar-left, .toolbar-center, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Zoom ボタン共通スタイル */
+    .zoom-btn {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      justify-content: center;
+      gap: 3px;
       background: none;
       border: none;
-      color: #94a3b8;
+      color: #cbd5e1;
       font-size: 10px;
       cursor: pointer;
       padding: 6px 10px;
       border-radius: 8px;
-      transition: background 0.15s, color 0.15s;
+      min-width: 52px;
+      transition: all 0.15s;
     }
 
-    .control-item:hover {
-      background: rgba(255, 255, 255, 0.08);
+    .zoom-btn:hover {
+      background: #2a2a2a;
       color: #ffffff;
     }
 
-    .control-icon {
+    .zoom-btn-icon {
       font-size: 20px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    /* メインのマイクボタン（ミュート解除） */
-    .control-item.mic-active {
-      color: #ef4444; /* ミュート中（赤） */
+    /* メインマイク（ミュート / ミュート解除） */
+    .zoom-btn.mic-unmuted {
+      color: #22c55e;
     }
 
-    .control-item.mic-recording {
-      color: #22c55e; /* 話し中（緑のパルス） */
-      animation: micPulse 1s infinite alternate;
+    .zoom-btn.mic-recording {
+      color: #22c55e;
+      background: rgba(34, 197, 94, 0.15);
+      animation: micGlow 1s infinite alternate;
     }
 
-    @keyframes micPulse {
-      0% { transform: scale(1); }
-      100% { transform: scale(1.1); color: #4ade80; }
+    @keyframes micGlow {
+      0% { box-shadow: 0 0 5px rgba(34, 197, 94, 0.4); }
+      100% { box-shadow: 0 0 15px rgba(34, 197, 94, 0.9); }
+    }
+
+    /* Zoom 終了ボタン（赤い「End」ボタン） */
+    .zoom-leave-btn {
+      background: #e11d48;
+      color: #ffffff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .zoom-leave-btn:hover {
+      background: #be123c;
     }
 
     /* カギ設定モーダル */
     .modal-overlay {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.85);
       display: none;
       justify-content: center;
       align-items: center;
@@ -276,11 +384,11 @@
     .modal-card {
       background: #262626;
       padding: 22px;
-      border-radius: 12px;
+      border-radius: 10px;
       width: 100%;
       max-width: 360px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border: 1px solid #3f3f46;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
     }
 
     .modal-title {
@@ -300,8 +408,8 @@
     .modal-input {
       width: 100%;
       padding: 10px;
-      background: #141414;
-      border: 1px solid #404040;
+      background: #171717;
+      border: 1px solid #3f3f46;
       color: white;
       border-radius: 6px;
       font-size: 13px;
@@ -322,81 +430,120 @@
       border: none;
     }
 
-    .modal-btn.cancel { background: #404040; color: white; }
+    .modal-btn.cancel { background: #3f3f46; color: white; }
     .modal-btn.save { background: #0e71eb; color: white; font-weight: bold; } /* Zoomブルー */
   </style>
 </head>
 <body>
 
-  <div class="zoom-container">
-    <!-- Zoom 上部ヘッダー -->
-    <div class="zoom-header">
-      <div class="meeting-info">
-        <span class="shield-icon">🛡️</span>
-        <span>AI面談ミーティング</span>
+  <div class="zoom-app">
+    <!-- ==========================================
+         Zoom 上部ツールバー（本物のZoom）
+         ========================================== -->
+    <div class="zoom-top-bar">
+      <div class="top-left">
+        <div class="zoom-shield-badge" title="暗号化接続中">
+          <span>🛡️</span>
+          <span>Zoom</span>
+        </div>
+        <div class="meeting-title">Zoom Meeting</div>
       </div>
-      <div class="meeting-timer" id="meetingTimer">00:00</div>
-      <button class="leave-btn" id="leaveBtn">終了</button>
+
+      <div class="top-center">
+        <div class="rec-badge">
+          <span class="rec-dot"></span>
+          <span>REC</span>
+        </div>
+        <div class="meeting-timer" id="meetingTimer">00:00</div>
+      </div>
+
+      <div class="top-right">
+        <button class="view-btn">⊞ 表示</button>
+      </div>
     </div>
 
-    <!-- メインビデオエリア -->
-    <div class="video-main-area">
-      <!-- 相手のビデオパネル（四角いカメラ画面） -->
-      <div class="remote-video-card" id="remoteVideoCard" title="タップでテスト発言します">
-        <video id="avatarVideo" class="remote-avatar-video" src="avatar.mp4?v=20261109" poster="avatar.jpg?v=20261109" playsinline muted loop preload="auto"></video>
+    <!-- ==========================================
+         メインビデオ画面（Zoomの相手カメラ画面）
+         ========================================== -->
+    <div class="video-viewport">
+      <div class="video-card" id="videoCard" title="タップでテスト発言します">
+        <video id="avatarVideo" class="remote-video" src="avatar.mp4?v=20261109" poster="avatar.jpg?v=20261109" playsinline muted loop preload="auto"></video>
         
-        <!-- 左下のネームプレート -->
-        <div class="video-name-tag">
-          <span class="name-audio-dot" id="nameAudioDot"></span>
-          <span>AIパートナー / 田口</span>
+        <!-- 左下のネームプレート（ai） -->
+        <div class="name-tag">
+          <span class="mic-status-icon" id="aiMicIcon">🎙️</span>
+          <span>ai</span>
         </div>
 
         <!-- 右上のセルフビュー（あなた） -->
-        <div class="self-view-pip">
-          <div class="self-icon">👤</div>
-          <div class="self-name">あなた</div>
+        <div class="self-view">
+          <div class="self-avatar-icon">👤</div>
+          <div class="self-name-tag">
+            <span>🔇</span>
+            <span>あなた</span>
+          </div>
         </div>
 
-        <!-- リアルタイム字幕（Live Captions） -->
-        <div class="zoom-captions" id="zoomCaptions">
-          <div class="caption-speaker" id="captionSpeaker">AIパートナー</div>
-          <div id="captionText">こんにちは！下のマイクを押してお話ししてくださいね。</div>
+        <!-- Zoom リアルタイム字幕（Live Captions） -->
+        <div class="zoom-live-transcript" id="liveTranscript">
+          <div class="transcript-speaker" id="transcriptSpeaker">
+            <span>💬</span>
+            <span id="speakerName">ai</span>
+          </div>
+          <div id="transcriptText">こんにちは！下のマイクボタンを押してお話ししてくださいね。</div>
         </div>
       </div>
     </div>
 
-    <!-- Zoom 下部コントロールバー -->
-    <div class="zoom-bottom-bar">
-      <!-- マイク（ミュート / ミュート解除） -->
-      <button class="control-item" id="micBtn" title="マイクで話しかける">
-        <span class="control-icon" id="micIcon">🎙️</span>
-        <span id="micLabel">話しかける</span>
-      </button>
+    <!-- ==========================================
+         Zoom 下部コントロールツールバー
+         ========================================== -->
+    <div class="zoom-toolbar">
+      <div class="toolbar-left">
+        <!-- マイクボタン（ミュート解除して話しかける） -->
+        <button class="zoom-btn" id="micBtn" title="押して話しかける">
+          <div class="zoom-btn-icon" id="micBtnIcon">🎙️</div>
+          <span id="micBtnLabel">ミュート解除</span>
+        </button>
 
-      <!-- 口の速度切り替え -->
-      <button class="control-item" id="speedToggleBtn" title="口の速度を変更">
-        <span class="control-icon">⚡</span>
-        <span id="speedLabel">速度 0.85x</span>
-      </button>
+        <!-- ビデオボタン -->
+        <button class="zoom-btn" title="ビデオの開始/停止">
+          <div class="zoom-btn-icon">📹</div>
+          <span>ビデオの停止</span>
+        </button>
+      </div>
 
-      <!-- 字幕の表示切替 -->
-      <button class="control-item" id="captionToggleBtn" title="字幕の表示/非表示">
-        <span class="control-icon">💬</span>
-        <span>字幕</span>
-      </button>
+      <div class="toolbar-center">
+        <!-- 口の速度変更 -->
+        <button class="zoom-btn" id="speedBtn" title="口の速度を変更">
+          <div class="zoom-btn-icon">⚡</div>
+          <span id="speedBtnLabel">速度 0.85x</span>
+        </button>
 
-      <!-- カギ設定 -->
-      <button class="control-item" id="keyBtn" title="Google AIのカギ設定">
-        <span class="control-icon">🔑</span>
-        <span>設定</span>
-      </button>
+        <!-- 字幕ボタン -->
+        <button class="zoom-btn" id="transcriptToggleBtn" title="字幕の表示/非表示">
+          <div class="zoom-btn-icon">💬</div>
+          <span>字幕</span>
+        </button>
+
+        <!-- 設定ボタン -->
+        <button class="zoom-btn" id="keyBtn" title="AIのカギ設定">
+          <div class="zoom-btn-icon">⚙️</div>
+          <span>設定</span>
+        </button>
+      </div>
+
+      <div class="toolbar-right">
+        <!-- Zoom 終了ボタン -->
+        <button class="zoom-leave-btn" id="leaveBtn">終了</button>
+      </div>
     </div>
 
     <!-- カギ設定モーダル -->
     <div class="modal-overlay" id="modalOverlay">
       <div class="modal-card">
-        <div class="modal-title">🔑 Google AIのカギ（APIキー）</div>
-        <div class="modal-desc">Google AI Studioのカギを貼り付けると、AIが何でも声で考えてお返事します。</div>
+        <div class="modal-title">⚙️ Google AIカギ設定</div>
+        <div class="modal-desc">Google AI Studioのカギを貼り付けると、aiが何でも声で考えてお返事します。</div>
         <input type="password" id="apiKeyInput" class="modal-input" placeholder="AIzaSy...">
         <div class="modal-btns">
           <button class="modal-btn cancel" id="modalCancel">キャンセル</button>
@@ -409,18 +556,18 @@
   <script>
     const EMBEDDED_API_KEY = ""; 
 
-    const remoteVideoCard = document.getElementById('remoteVideoCard');
+    const videoCard = document.getElementById('videoCard');
     const avatarVideo = document.getElementById('avatarVideo');
-    const nameAudioDot = document.getElementById('nameAudioDot');
-    const zoomCaptions = document.getElementById('zoomCaptions');
-    const captionSpeaker = document.getElementById('captionSpeaker');
-    const captionText = document.getElementById('captionText');
+    const aiMicIcon = document.getElementById('aiMicIcon');
+    const liveTranscript = document.getElementById('liveTranscript');
+    const speakerName = document.getElementById('speakerName');
+    const transcriptText = document.getElementById('transcriptText');
     const micBtn = document.getElementById('micBtn');
-    const micIcon = document.getElementById('micIcon');
-    const micLabel = document.getElementById('micLabel');
-    const speedToggleBtn = document.getElementById('speedToggleBtn');
-    const speedLabel = document.getElementById('speedLabel');
-    const captionToggleBtn = document.getElementById('captionToggleBtn');
+    const micBtnIcon = document.getElementById('micBtnIcon');
+    const micBtnLabel = document.getElementById('micBtnLabel');
+    const speedBtn = document.getElementById('speedBtn');
+    const speedBtnLabel = document.getElementById('speedBtnLabel');
+    const transcriptToggleBtn = document.getElementById('transcriptToggleBtn');
     const leaveBtn = document.getElementById('leaveBtn');
     const meetingTimer = document.getElementById('meetingTimer');
 
@@ -441,34 +588,30 @@
       meetingTimer.textContent = `${m}:${s}`;
     }, 1000);
 
-    // 速度切り替え（0.85x → 1.0x → 0.7x）
+    // 口の速度切り替え（0.85x → 1.0x → 0.7x）
     const speeds = [0.85, 1.0, 0.7];
     let speedIndex = 0;
     let currentSpeed = speeds[speedIndex];
 
-    speedToggleBtn.addEventListener('click', () => {
+    speedBtn.addEventListener('click', () => {
       speedIndex = (speedIndex + 1) % speeds.length;
       currentSpeed = speeds[speedIndex];
-      speedLabel.textContent = `速度 ${currentSpeed}x`;
+      speedBtnLabel.textContent = `速度 ${currentSpeed}x`;
       if (avatarVideo) {
         avatarVideo.playbackRate = currentSpeed;
       }
       speakText(`速度を${currentSpeed}倍に変更しました。`);
     });
 
-    // 字幕の表示切り替え
-    captionToggleBtn.addEventListener('click', () => {
-      if (zoomCaptions.style.display === 'none') {
-        zoomCaptions.style.display = 'block';
-      } else {
-        zoomCaptions.style.display = 'none';
-      }
+    // 字幕の表示/非表示
+    transcriptToggleBtn.addEventListener('click', () => {
+      liveTranscript.style.display = (liveTranscript.style.display === 'none') ? 'block' : 'none';
     });
 
-    // 退出ボタン
+    // 終了ボタン
     leaveBtn.addEventListener('click', () => {
-      if (confirm('ミーティングを退出しますか？')) {
-        speakText('本日の面談ミーティングを終了します。お疲れ様でした！');
+      if (confirm('Zoomミーティングを退出しますか？')) {
+        speakText('ミーティングを終了します。お疲れ様でした！');
       }
     });
 
@@ -495,7 +638,7 @@
       if (val) {
         localStorage.setItem(API_KEY_STORAGE, val);
         modalOverlay.style.display = 'none';
-        speakText('新しいカギをセットしました！何でも声でお話ししてくださいね。');
+        speakText('新しいカギを保存しました！何でも声でお話ししてくださいね。');
       } else {
         localStorage.removeItem(API_KEY_STORAGE);
         modalOverlay.style.display = 'none';
@@ -503,11 +646,11 @@
     });
 
     // ==========================================
-    // 1. AIが声でお返事する機能（Zoom風スピーカー緑枠連動！）
+    // 1. AIが声でお返事する機能（Zoom本物と同じ緑色発言枠！）
     // ==========================================
     function speakText(text) {
       if (!window.speechSynthesis) {
-        captionText.textContent = text;
+        transcriptText.textContent = text;
         return;
       }
 
@@ -515,7 +658,7 @@
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ja-JP';
-      utterance.rate = 1.0; // Zoom通話に合わせた自然なトーン
+      utterance.rate = 1.0;
       utterance.pitch = 1.1;
 
       const voices = window.speechSynthesis.getVoices();
@@ -524,22 +667,23 @@
         utterance.voice = jaVoice;
       }
 
-      // 音声開始：Zoomの緑色スピーカー枠を光らせて動画再生！
+      // 音声開始：Zoom本物と同じ鮮やかなグリーンの発言者枠が光る！
       utterance.onstart = () => {
-        remoteVideoCard.classList.add('speaking');
-        nameAudioDot.style.background = '#22c55e';
-        captionSpeaker.textContent = 'AIパートナー (話中)';
-        captionText.textContent = text;
+        videoCard.classList.add('speaking');
+        aiMicIcon.textContent = '🎙️';
+        aiMicIcon.style.color = '#22c55e';
+        speakerName.textContent = 'ai (発言中)';
+        transcriptText.textContent = text;
         if (avatarVideo) {
           avatarVideo.playbackRate = currentSpeed;
           avatarVideo.play().catch(e => console.log('Video play error:', e));
         }
       };
 
-      // 音声終了：緑枠を消して動画を停止！
+      // 音声終了：枠の光を消して動画を停止！
       utterance.onend = () => {
-        remoteVideoCard.classList.remove('speaking');
-        nameAudioDot.style.background = '#94a3b8';
+        videoCard.classList.remove('speaking');
+        speakerName.textContent = 'ai';
         if (avatarVideo) {
           avatarVideo.pause();
           avatarVideo.currentTime = 0;
@@ -547,8 +691,8 @@
       };
 
       utterance.onerror = () => {
-        remoteVideoCard.classList.remove('speaking');
-        nameAudioDot.style.background = '#94a3b8';
+        videoCard.classList.remove('speaking');
+        speakerName.textContent = 'ai';
         if (avatarVideo) {
           avatarVideo.pause();
           avatarVideo.currentTime = 0;
@@ -559,7 +703,7 @@
     }
 
     // 相手の画面をタップするとテスト発言！
-    remoteVideoCard.addEventListener('click', () => {
+    videoCard.addEventListener('click', () => {
       speakText('こんにちは！Zoomミーティングへようこそ。下のマイクを押してお話ししてくださいね！');
     });
 
@@ -580,16 +724,16 @@
       recognition.onstart = () => {
         isRecording = true;
         micBtn.classList.add('mic-recording');
-        micIcon.textContent = '🔴';
-        micLabel.textContent = '聴き取り中';
-        captionSpeaker.textContent = 'あなた';
-        captionText.textContent = 'お話し中…（話し終わると自動でお返事します）';
+        micBtnIcon.textContent = '🔴';
+        micBtnLabel.textContent = 'ミュート中';
+        speakerName.textContent = 'あなた';
+        transcriptText.textContent = 'お話し中…（話し終わると自動でお返事します）';
       };
 
       recognition.onresult = (event) => {
         const spokenText = event.results[0][0].transcript;
-        captionSpeaker.textContent = 'あなた';
-        captionText.textContent = spokenText;
+        speakerName.textContent = 'あなた';
+        transcriptText.textContent = spokenText;
         handleUserQuery(spokenText);
       };
 
@@ -605,14 +749,14 @@
         resetMic();
       };
     } else {
-      micLabel.textContent = 'マイク未対応';
+      micBtnLabel.textContent = '非対応';
     }
 
     function resetMic() {
       isRecording = false;
       micBtn.classList.remove('mic-recording');
-      micIcon.textContent = '🎙️';
-      micLabel.textContent = '話しかける';
+      micBtnIcon.textContent = '🎙️';
+      micBtnLabel.textContent = 'ミュート解除';
     }
 
     // マイクボタンクリック
@@ -626,7 +770,7 @@
         recognition.stop();
       } else {
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        remoteVideoCard.classList.remove('speaking');
+        videoCard.classList.remove('speaking');
         if (avatarVideo) {
           avatarVideo.pause();
           avatarVideo.currentTime = 0;
@@ -644,8 +788,8 @@
     // 3. AIの頭脳（Google Gemini ＋ 内蔵スマート頭脳）
     // ==========================================
     async function handleUserQuery(query) {
-      captionSpeaker.textContent = 'AIパートナー';
-      captionText.textContent = 'AIが考え中…💭';
+      speakerName.textContent = 'ai';
+      transcriptText.textContent = 'aiが考え中…💭';
 
       const apiKey = getApiKey();
       const q = query.toUpperCase();
@@ -653,17 +797,17 @@
 
       // 内蔵知識（カギがなくても即座に声でおしゃべり！）
       if (q.includes('こんにちは') || q.includes('初めまして') || q.includes('ハロー')) {
-        reply = 'こんにちは！本日の面談ミーティングにご参加いただきありがとうございます。今日はどんなお話をしましょうか？';
+        reply = 'こんにちは！Zoomミーティングにご参加いただきありがとうございます。今日はどんなお話をしましょうか？';
       } else if (q.includes('自己紹介') || q.includes('誰') || q.includes('名前')) {
-        reply = '私はあなたの専属AIパートナーです！オンライン会議のように、いつでもこうしてお顔を見ながらお話しできますよ。何でも聞いてくださいね！';
+        reply = '私はあなたの専属aiアシスタントです！Zoomでいつでもこうしてお話しできますよ。何でも聞いてくださいね！';
       } else if (q.includes('元気') || q.includes('調子')) {
-        reply = '絶好調ですよ！オンラインでお会いできて嬉しいです。あなたは今日どんな一日でしたか？';
+        reply = '絶好調ですよ！Zoomでお会いできて嬉しいです。あなたは今日どんな一日でしたか？';
       } else if (q.includes('ミネストローネ') || q.includes('レシピ') || q.includes('料理')) {
-        reply = 'ミネストローネですね！玉ねぎ、人参、ベーコンをオリーブオイルで炒めて、トマト缶とコンソメで煮込むだけで美味しく作れますよ！';
+        reply = 'ミネストローネですね！玉ねぎ、人参、ベーコンを炒めて、トマト缶とコンソメで煮込むだけで美味しく作れますよ！';
       } else if (q.includes('GDP') || q.includes('経済') || q.includes('成長率')) {
         reply = '世界のGDPトップはアメリカ、2位が中国、3位ドイツ、4位日本です！インドの急成長もすごい勢いですね。';
       } else if (q.includes('日本') && (q.includes('予測') || q.includes('今後') || q.includes('将来'))) {
-        reply = '今後の日本は、賃上げとデフレ脱却、そしてAIや自動化技術への投資が最大の鍵になると予測されています！';
+        reply = '今後の日本は、賃上げとデフレ脱却、そしてAIへの投資が最大の鍵になると予測されています！';
       } else if (q.includes('天気')) {
         reply = '今日はお散歩日和だといいですね！お出かけのときは上着を一枚持っていくと安心ですよ。';
       } else if (q.includes('ありがとう')) {
@@ -679,7 +823,7 @@
             body: JSON.stringify({
               contents: [{
                 parts: [{
-                  text: `あなたはZoomで1対1のオンライン面談をしている親切で聡明な女性AIパートナー（田口風）です。親しみやすく落ち着いた自然な日本語で、音声会話用として聞き取りやすいように、1〜2文（最大80文字程度）で簡潔にお返事してください。\n\n質問: ${query}`
+                  text: `あなたはZoomでオンライン対話をしている親切で聡明な女性AIパートナー「ai」です。親しみやすく落ち着いた自然な日本語で、音声会話用として聞き取りやすいように、1〜2文（最大80文字程度）で簡潔にお返事してください。\n\n質問: ${query}`
                 }]
               }]
             })
@@ -693,12 +837,12 @@
           reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
         } catch (e) {
           console.error(e);
-          reply = '電波の調子が少し乱れたようです。もう一度お話しいただけますか？';
+          reply = '電波の調子が乱れたようです。もう一度お話しいただけますか？';
         }
       }
 
       if (!reply) {
-        reply = `「${query}」ですね！よく分かりました。あなたとこうしてZoomでお話しできてとても楽しいです！`;
+        reply = `「${query}」ですね！よく分かりました。あなたとZoomでお話しできてとても楽しいです！`;
       }
 
       speakText(reply);
