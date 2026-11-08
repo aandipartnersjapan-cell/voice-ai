@@ -159,7 +159,7 @@
     }
 
     /* ==========================================
-       3. 中央：ビデオエリア（上下の固定バーの隙間にぴったり収まる！）
+       3. 中央：ビデオエリア（無駄な空間ゼロ！画面いっぱいにフィット！）
        ========================================== */
     .zoom-video-area {
       position: absolute;
@@ -167,118 +167,114 @@
       bottom: 70px;
       left: 0;
       right: 0;
-      padding: 10px 14px;
+      padding: 0; /* 無駄な余白ゼロ！ */
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      background: #000000;
     }
 
-    /* 相手（ai）のカメラ画面枠 */
+    /* 相手（ai）のカメラ画面（隙間なく全画面フィット！） */
     .video-card {
       width: 100%;
-      max-width: 440px;
-      max-height: calc(100% - 50px); /* 字幕のスペースを残してぴったり収まる！ */
-      aspect-ratio: 4 / 3;
+      height: 100%;
       background: #111111;
-      border-radius: 8px;
       position: relative;
       overflow: hidden;
-      border: 3px solid transparent;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
-      transition: border-color 0.15s, box-shadow 0.15s;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: box-shadow 0.15s;
     }
 
-    /* 発言中：Zoom特有のグリーン枠！ */
+    /* 発言中：Zoom特有の内側グリーン枠！ */
     .video-card.speaking {
-      border-color: #00da5a;
-      box-shadow: 0 0 20px rgba(0, 218, 90, 0.5);
+      box-shadow: inset 0 0 0 4px #00da5a;
     }
 
     .remote-video {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      object-position: center 15%;
+      object-position: center 20%;
       display: block;
     }
 
     /* Zoom 左下ネームタグ（ai） */
     .name-tag {
       position: absolute;
-      bottom: 8px;
-      left: 8px;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(4px);
-      padding: 3px 8px;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      padding: 4px 10px;
       border-radius: 4px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 500;
       display: flex;
       align-items: center;
       gap: 5px;
       color: #ffffff;
       z-index: 10;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .mic-dot {
       color: #22c55e;
-      font-size: 11px;
+      font-size: 12px;
     }
 
     /* Zoom 右上セルフビュー（あなた） */
     .self-view {
       position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 65px;
-      height: 85px;
+      top: 12px;
+      right: 12px;
+      width: 75px;
+      height: 100px;
       background: #262626;
       border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       z-index: 10;
       color: #94a3b8;
-      font-size: 9px;
+      font-size: 10px;
     }
 
     .self-icon {
-      font-size: 20px;
+      font-size: 24px;
       margin-bottom: 2px;
     }
 
-    /* Zoom 字幕（Live Captions） */
+    /* Zoom 字幕（ビデオの上にスタイリッシュに浮かび上がるLive Captions！） */
     .zoom-captions {
-      width: 100%;
-      max-width: 440px;
-      background: rgba(20, 20, 20, 0.85);
-      backdrop-filter: blur(8px);
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 12px;
+      position: absolute;
+      bottom: 50px;
+      left: 16px;
+      right: 16px;
+      background: rgba(10, 10, 10, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
       line-height: 1.4;
       color: #f8fafc;
       text-align: center;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      margin-top: 8px;
-      min-height: 40px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+      z-index: 15;
     }
 
     .caption-speaker {
       font-size: 10px;
       color: #38bdf8;
       font-weight: bold;
+      margin-bottom: 2px;
     }
 
     /* カギ設定モーダル */
@@ -358,7 +354,7 @@
       <button class="leave-btn" id="leaveBtn">終了</button>
     </div>
 
-    <!-- 2. 中央：相手（ai）のカメラ画面 -->
+    <!-- 2. 中央：相手（ai）のカメラ画面（隙間なく全画面フィット！） -->
     <div class="zoom-video-area">
       <div class="video-card" id="videoCard" title="タップでテスト発言します">
         <video id="avatarVideo" class="remote-video" src="avatar.mp4?v=20261109" poster="avatar.jpg?v=20261109" playsinline muted loop preload="auto"></video>
@@ -374,12 +370,12 @@
           <div class="self-icon">👤</div>
           <div>あなた</div>
         </div>
-      </div>
 
-      <!-- 字幕（Live Captions） -->
-      <div class="zoom-captions" id="zoomCaptions">
-        <div class="caption-speaker" id="captionSpeaker">ai</div>
-        <div id="captionText">こんにちは！下のマイクを押してお話ししてくださいね。</div>
+        <!-- 字幕（ビデオの上にスタイリッシュに浮かび上がる！） -->
+        <div class="zoom-captions" id="zoomCaptions">
+          <div class="caption-speaker" id="captionSpeaker">ai</div>
+          <div id="captionText">こんにちは！下のマイクを押してお話ししてくださいね。</div>
+        </div>
       </div>
     </div>
 
